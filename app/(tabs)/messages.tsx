@@ -1,7 +1,9 @@
-import { StyleSheet, useColorScheme } from 'react-native';
-import { Text, View } from '@/components/Themed';
+import { StyleSheet, useColorScheme, FlatList } from 'react-native';
+import { View } from '@/components/Themed';
 import { Header } from '@/components/Header';
 import Colors from '@/constants/Colors';
+import { DUMMY_CHATS } from '@/constants/DummyData';
+import { MessageCard } from '@/components/MessageCard';
 
 export default function MessagesScreen() {
   const colorScheme = useColorScheme();
@@ -10,9 +12,12 @@ export default function MessagesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       <Header title="Chat" />
-      <View style={styles.container}>
-        <Text style={{ color: themeColors.text }}>Your conversations will appear here.</Text>
-      </View>
+      <FlatList
+        data={DUMMY_CHATS}
+        renderItem={({ item }) => <MessageCard item={item} />}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ backgroundColor: themeColors.background }}
+      />
     </View>
   );
 }

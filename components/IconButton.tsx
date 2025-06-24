@@ -15,7 +15,7 @@ export function IconButton({ name, onPress }: IconButtonProps) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.container, { backgroundColor: pressed ? '#555' : '#333' }]}
+      style={({ pressed }) => [styles.container, { backgroundColor: pressed ? themeColors.background : themeColors.card }]}
     >
       <FontAwesome name={name} size={20} color={themeColors.text} />
     </Pressable>
