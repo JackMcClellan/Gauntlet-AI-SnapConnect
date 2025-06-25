@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createAdminClient } from '../_shared/supabase-admin.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,29 +15,22 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) throw new Error('User not found.')
 
-    // --- Logic for different HTTP methods ---
     let responseData: any;
     
     if (req.method === 'GET') {
       const url = new URL(req.url);
       const other_user_id = url.searchParams.get('other_user_id');
-
-      if (other_user_id) {
-        // Get message history with a specific user
-        const { data, error } = await supabaseClient
-          .from('messages')
-          .select('*, senderProfile:users!sender_id(*)')
-          .or(`and(sender_id.eq.${user.id},receiver_id.eq.${other_user_id}),and(sender_id.eq.${other_user_id},receiver_id.eq.${user.id})`)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        responseData = data;
-      } else {
-        // Get conversation list
-        const adminClient = createAdminClient();
-        const { data, error } = await adminClient.rpc('get_user_conversations', { p_user_id: user.id });
-        if (error) throw error;
-        responseData = data;
+      if (!other_user_id) {
+        throw new Error('other_user_id is required to get messages.');
       }
+      // Get message history with a specific user
+      const { data, error } = await supabaseClient
+        .from('messages')
+        .select('*, senderProfile:users!sender_id(*)')
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${other_user_id}),and(sender_id.eq.${other_user_id},receiver_id.eq.${user.id})`)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      responseData = data;
     } else if (req.method === 'POST') {
       // Create a new message
       const { receiver_id, content_type, content, file } = await req.json();

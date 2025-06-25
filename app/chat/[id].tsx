@@ -63,7 +63,7 @@ export default function ChatScreen() {
     if (!currentUserId || !otherUserId) return;
 
     try {
-      const { messages: fetchedMessages } = await getMessages(otherUserId);
+      const fetchedMessages = await getMessages(otherUserId);
       setMessages(fetchedMessages);
 
       // Extract other user's profile from the first message if available

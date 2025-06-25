@@ -67,7 +67,7 @@ export const getUserById = (id: string) => invoke<UserProfile>('users', { method
 export const updateUser = (updates: Partial<UserProfile>) => invoke<UserProfile>('users', { method: 'PATCH', body: updates });
 
 // MESSAGES
-export const getConversations = () => invoke<Conversation[]>('messages', { method: 'GET' });
+export const getConversations = () => invoke<Conversation[]>('conversations', { method: 'GET' });
 export const getMessages = (other_user_id: string) => invoke<Message[]>('messages', { method: 'GET', body: { other_user_id } });
 export const sendMessage = (message: {
   receiver_id: string;
