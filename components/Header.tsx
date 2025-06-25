@@ -7,9 +7,10 @@ import { IconButton } from './IconButton';
 
 interface HeaderProps {
   title?: string;
+  right?: React.ReactNode;
 }
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, right }: HeaderProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
 
@@ -30,8 +31,12 @@ export function Header({ title }: HeaderProps) {
         {title && <Text style={[styles.headerTitle, { color: themeColors.text }]}>{title}</Text>}
 
         <View style={styles.sideContainer}>
-          <IconButton name="user-plus" onPress={() => { /* TODO: Add Friend */ }} />
-          <IconButton name="ellipsis-h" onPress={() => { /* TODO: Settings */ }} />
+          {right || (
+            <>
+              <IconButton name="user-plus" onPress={() => { /* TODO: Add Friend */ }} />
+              <IconButton name="ellipsis-h" onPress={() => { /* TODO: Settings */ }} />
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>

@@ -1,24 +1,21 @@
 import { supabase } from './supabase';
 
-// Helper function to handle Supabase function invocation
-async function invoke<T>(functionName: string, body: Record<string, any>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(functionName, { body });
+async function invoke<T>(
+  functionName: string,
+  options: {
+    method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+    body?: Record<string, any>;
+  }
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(functionName, options);
   if (error) {
     throw new Error(`Failed to call ${functionName}: ${error.message}`);
   }
   return data;
 }
 
-// Types based on your schema.md and function responses
-// You might want to generate these automatically in the future (e.g., from OpenAPI spec)
-
-interface Story {
-  id: string;
-  file_id: string;
-  time_delay: number;
-  caption: string | null;
-  created_at: string;
-}
+// --- Type Definitions ---
+// These should ideally be generated from your DB schema
 
 interface UserProfile {
   id: string;
@@ -31,12 +28,17 @@ interface File {
   file_type: 'image' | 'video';
 }
 
-export interface StoryWithRelations extends Story {
+export interface Story {
+  id: string;
+  file_id: string;
+  time_delay: number;
+  caption: string | null;
+  created_at: string;
   user: UserProfile;
   file: File;
 }
 
-interface Conversation {
+export interface Conversation {
   other_user_id: string;
   other_user_username: string | null;
   other_user_avatar_url: string | null;
@@ -46,51 +48,41 @@ interface Conversation {
   last_message_created_at: string;
 }
 
-interface Message {
+export interface Message {
   id: string;
+  sender_id: string;
   receiver_id: string;
   content_type: 'text' | 'file';
   content: string | null;
   file_id: string | null;
   created_at: string;
+  senderProfile?: UserProfile | null;
 }
 
-// API Functions
+// --- API Functions ---
 
-/**
- * Creates a new story.
- * @param story - The story data.
- */
+// USERS
+export const getUsers = () => invoke<UserProfile[]>('users', { method: 'GET' });
+export const getUserById = (id: string) => invoke<UserProfile>('users', { method: 'GET', body: { id } });
+export const updateUser = (updates: Partial<UserProfile>) => invoke<UserProfile>('users', { method: 'PATCH', body: updates });
+
+// MESSAGES
+export const getConversations = () => invoke<Conversation[]>('messages', { method: 'GET' });
+export const getMessages = (other_user_id: string) => invoke<Message[]>('messages', { method: 'GET', body: { other_user_id } });
+export const sendMessage = (message: {
+  receiver_id: string;
+  content_type: 'text' | 'file';
+  content?: string;
+  file?: { file_type: 'image' | 'video'; storage_path: string };
+}) => invoke<Message>('messages', { method: 'POST', body: message });
+
+// STORIES
+export const getStories = () => invoke<Story[]>('stories', { method: 'GET' });
 export const createStory = (story: {
   file_type: 'image' | 'video';
   storage_path: string;
   caption?: string;
   tags?: string[];
   time_delay: number;
-}) => invoke<{ story: Story }>('create-story', story);
-
-/**
- * Fetches the main stories feed.
- */
-export const getStoriesFeed = () => invoke<{ stories: StoryWithRelations[] }>('get-stories-feed', {});
-
-/**
- * Sends a direct message.
- * @param message - The message data.
- */
-export const sendMessage = (message: {
-  receiver_id: string;
-  content_type: 'text' | 'file';
-  content?: string;
-  file?: {
-    file_type: 'image' | 'video';
-    storage_path: string;
-    caption?: string;
-    tags?: string[];
-  };
-}) => invoke<{ message: Message }>('send-message', message);
-
-/**
- * Fetches the user's conversation list.
- */
-export const getConversations = () => invoke<{ conversations: Conversation[] }>('get-conversations', {}); 
+}) => invoke<Story>('stories', { method: 'POST', body: story });
+export const deleteStory = (id: string) => invoke<{ message: string }>('stories', { method: 'DELETE', body: { id } }); 

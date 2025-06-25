@@ -2,12 +2,13 @@ import React from 'react';
 import { useStorageState } from '@/hooks/useStorageState';
 import { supabase } from '@/lib/supabase';
 import { Alert } from 'react-native';
+import { Session } from '@supabase/supabase-js';
 
 const AuthContext = React.createContext<{
   signIn: (email?: string, password?: string) => void;
   signUp: (email?: string, password?: string) => void;
   signOut: () => void;
-  session?: string | null;
+  session?: Session | null;
   isLoading: boolean;
 }>({
   signIn: () => null,
@@ -30,14 +31,14 @@ export function SessionProvider(props: React.PropsWithChildren) {
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session?.access_token ?? null);
+      setSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session?.access_token ?? null);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
