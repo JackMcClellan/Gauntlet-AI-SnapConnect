@@ -38,9 +38,12 @@ Deno.serve(async (req) => {
       if (storyError) throw storyError;
       responseData = storyData;
     } else if (req.method === 'DELETE') {
-        const { id } = await req.json();
+        const url = new URL(req.url);
+        const id = url.searchParams.get('id');
         if (!id) throw new Error('Story ID is required for deletion.');
-        const { error } = await supabaseClient.from('stories').delete().eq('id', id);
+        
+        const { error } = await supabaseClient.from('stories').delete().eq('id', id).eq('user_id', user.id);
+        
         if (error) throw error;
         responseData = { message: 'Story deleted successfully.' };
     } else {

@@ -20,7 +20,9 @@ Deno.serve(async (req) => {
     let responseData: any;
     
     if (req.method === 'GET') {
-      const { other_user_id } = await req.json().catch(() => ({ other_user_id: null }));
+      const url = new URL(req.url);
+      const other_user_id = url.searchParams.get('other_user_id');
+
       if (other_user_id) {
         // Get message history with a specific user
         const { data, error } = await supabaseClient

@@ -19,7 +19,9 @@ Deno.serve(async (req) => {
     let responseData: any;
 
     if (req.method === 'GET') {
-      const { id } = await req.json().catch(() => ({ id: null }));
+      const url = new URL(req.url);
+      const id = url.searchParams.get('id');
+
       if (id) {
         // Get specific user by ID
         const { data, error } = await supabaseClient.from('users').select('*').eq('id', id).single();
