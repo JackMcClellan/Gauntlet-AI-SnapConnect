@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Button } from '@/components/Button';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Zap, ZapOff, RotateCw } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -84,7 +84,7 @@ export function CoreCamera() {
   if (!permission.granted) {
     // Camera permissions are not granted yet.
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, {padding: 10}]}>
         <Text style={{ textAlign: 'center' }}>We need your permission to show the camera</Text>
         <Button onPress={requestPermission} title="Grant Permission" />
       </View>
@@ -96,7 +96,7 @@ export function CoreCamera() {
       <CameraView style={styles.camera} facing={facing} flash={flash} ref={cameraRef}>
         <View style={styles.buttonContainer}>
           <TouchableOpacity onPress={toggleFlash}>
-            <FontAwesome name={flash === 'on' ? 'bolt' : 'flash'} size={24} color="white" />
+            {flash === 'on' ? <Zap size={24} stroke="white" /> : <ZapOff size={24} stroke="white" />}
           </TouchableOpacity>
           
           <TouchableOpacity onPressIn={handlePressIn} onPressOut={handlePressOut}>
@@ -106,7 +106,7 @@ export function CoreCamera() {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={toggleCameraFacing}>
-            <FontAwesome name="refresh" size={24} color="white" />
+            <RotateCw size={24} stroke="white" />
           </TouchableOpacity>
         </View>
       </CameraView>

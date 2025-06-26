@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ImageBackground, TouchableOpacity, Text, SafeAreaView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { DUMMY_CHATS, DUMMY_STORIES } from '@/constants/DummyData';
-import { Ionicons } from '@expo/vector-icons';
+import { X } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, withTiming, Easing, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, withTiming, Easing, useAnimatedStyle, runOnJS, cancelAnimation } from 'react-native-reanimated';
 
 function ProgressBar({ duration, onFinish }: { duration: number; onFinish: () => void }) {
   const progress = useSharedValue(0);
@@ -16,7 +16,11 @@ function ProgressBar({ duration, onFinish }: { duration: number; onFinish: () =>
         runOnJS(onFinish)();
       }
     });
-  }, [duration]);
+
+    return () => {
+      cancelAnimation(progress);
+    };
+  }, [duration, onFinish, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -31,9 +35,9 @@ function ProgressBar({ duration, onFinish }: { duration: number; onFinish: () =>
   );
 }
 
-export default function StoryScreen() {
+export default function DiscoverStoryScreen() {
   const router = useRouter();
-  const { id, userIds: userIdsString, initialStoryIndex } = useLocalSearchParams<{ id: string; userIds: string, initialStoryIndex?: string }>();
+  const { id, userIds: userIdsString, initialStoryIndex, animationDirection } = useLocalSearchParams<{ id: string; userIds: string, initialStoryIndex?: string, animationDirection?: 'left' | 'right' }>();
   const userIds = JSON.parse(userIdsString || '[]');
 
   const userStories = DUMMY_STORIES[id as keyof typeof DUMMY_STORIES] || [];
@@ -54,11 +58,12 @@ export default function StoryScreen() {
         const prevUserId = userIds[currentUserIndex - 1];
         const prevUserStories = DUMMY_STORIES[prevUserId as keyof typeof DUMMY_STORIES] || [];
         router.replace({
-          pathname: '/story/[id]',
+          pathname: '/discover/[id]',
           params: {
             id: prevUserId,
             userIds: userIdsString,
             initialStoryIndex: String(prevUserStories.length - 1),
+            animationDirection: 'left',
           },
         });
       }
@@ -73,8 +78,8 @@ export default function StoryScreen() {
       if (currentUserIndex < userIds.length - 1) {
         const nextUserId = userIds[currentUserIndex + 1];
         router.replace({
-          pathname: '/story/[id]',
-          params: { id: nextUserId, userIds: userIdsString },
+          pathname: '/discover/[id]',
+          params: { id: nextUserId, userIds: userIdsString, animationDirection: 'right' },
         });
       } else {
         router.back();
@@ -92,7 +97,7 @@ export default function StoryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ headerShown: false, animation: animationDirection === 'left' ? 'slide_from_left' : 'slide_from_right' }} />
       <ImageBackground source={{ uri: currentStory.url }} style={styles.imageBackground}>
         <View style={styles.header}>
             <View style={styles.progressBarsContainer}>
@@ -113,8 +118,8 @@ export default function StoryScreen() {
             <View style={styles.userInfo}>
                 <Image source={{ uri: user.avatar }} style={styles.avatar} />
                 <Text style={styles.username}>{user.name}</Text>
-                <TouchableOpacity onPress={() => router.back()}>
-                    <Ionicons name="close" size={28} color="white" style={{ marginLeft: 10}}/>
+                <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+                  <X size={28} color="white" />
                 </TouchableOpacity>
             </View>
         </View>
@@ -139,6 +144,7 @@ const styles = StyleSheet.create({
     header: {
         paddingTop: 20,
         paddingHorizontal: 10,
+        zIndex: 1,
     },
     progressBarsContainer: {
         flexDirection: 'row',
@@ -179,5 +185,8 @@ const styles = StyleSheet.create({
     },
     navPressable: {
         flex: 1,
-    }
+    },
+    closeButton: {
+        marginLeft: 10,
+    },
 }); 

@@ -4,6 +4,7 @@ import Colors from '@/constants/Colors';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { IconButton } from './IconButton';
+import { Search, UserPlus, MoreHorizontal } from 'lucide-react-native';
 
 interface HeaderProps {
   title?: string;
@@ -25,7 +26,7 @@ export function Header({ title, right }: HeaderProps) {
               style={styles.avatar}
             />
           </Pressable>
-          <IconButton name="search" onPress={() => { /* TODO: Search Dropdown */ }} />
+          <IconButton icon={Search} onPress={() => { /* TODO: Search Dropdown */ }} />
         </View>
 
         {title && <Text style={[styles.headerTitle, { color: themeColors.text }]}>{title}</Text>}
@@ -33,8 +34,8 @@ export function Header({ title, right }: HeaderProps) {
         <View style={styles.sideContainer}>
           {right || (
             <>
-              <IconButton name="user-plus" onPress={() => { /* TODO: Add Friend */ }} />
-              <IconButton name="ellipsis-h" onPress={() => { /* TODO: Settings */ }} />
+              <IconButton icon={UserPlus} onPress={() => { /* TODO: Add Friend */ }} />
+              <IconButton icon={MoreHorizontal} onPress={() => { /* TODO: Settings */ }} />
             </>
           )}
         </View>
@@ -55,12 +56,14 @@ const styles = StyleSheet.create({
   sideContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 1,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     position: 'absolute',
-    left: '45%', // Adjust for centering
+    left: 0,
+    right: 0,
     textAlign: 'center',
   },
   avatarButton: {

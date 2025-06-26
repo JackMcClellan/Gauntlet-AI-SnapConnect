@@ -1,14 +1,13 @@
 import React from 'react';
-import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Pressable, StyleSheet, useColorScheme } from 'react-native';
 import Colors from '@/constants/Colors';
 
 interface IconButtonProps {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  icon: React.ElementType;
   onPress: () => void;
 }
 
-export function IconButton({ name, onPress }: IconButtonProps) {
+export function IconButton({ icon: Icon, onPress }: IconButtonProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
 
@@ -17,7 +16,7 @@ export function IconButton({ name, onPress }: IconButtonProps) {
       onPress={onPress}
       style={({ pressed }) => [styles.container, { backgroundColor: pressed ? themeColors.background : themeColors.card }]}
     >
-      <FontAwesome name={name} size={20} color={themeColors.text} />
+      <Icon size={20} color={themeColors.text} />
     </Pressable>
   );
 }

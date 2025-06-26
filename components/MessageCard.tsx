@@ -1,38 +1,34 @@
 // This is a new file
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
+import { DUMMY_CHATS } from '@/constants/DummyData';
 import Colors from '@/constants/Colors';
-import { Conversation } from '@/lib/api';
-import { format } from 'date-fns';
 
 type MessageCardProps = {
-  conversation: Conversation;
+  item: (typeof DUMMY_CHATS)[0];
 };
 
-export function MessageCard({ conversation }: MessageCardProps) {
-  const colorScheme = useColorScheme();
-  const themeColors = Colors[colorScheme ?? 'light'];
-
-  const formattedTimestamp = format(new Date(conversation.last_message_created_at), 'p');
+export function MessageCard({ item }: MessageCardProps) {
+  const hasUnread = item.unreadCount > 0;
 
   return (
-    <Link href={`/chat/${conversation.other_user_id}`} asChild>
-      <TouchableOpacity style={[styles.container, { borderBottomColor: themeColors.border }]}>
-        <Image
-          source={{ uri: conversation.other_user_avatar_url || 'https://placekitten.com/50/50' }}
-          style={styles.avatar}
-        />
+    <Link href={`/chat/${item.id}`} asChild>
+      <TouchableOpacity style={styles.container}>
+        <Image source={{ uri: item.avatar }} style={styles.avatar} />
         <View style={styles.content}>
-          <Text style={[styles.name, { color: themeColors.text }]}>
-            {conversation.other_user_username || 'Unknown User'}
-          </Text>
-          <Text style={[styles.lastMessage, { color: themeColors.text }]} numberOfLines={1}>
-            {conversation.last_message_content || '...'}
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.lastMessage}
           </Text>
         </View>
         <View style={styles.meta}>
-          <Text style={[styles.timestamp, { color: themeColors.text }]}>{formattedTimestamp}</Text>
+          <Text style={styles.timestamp}>{item.timestamp}</Text>
+          {hasUnread && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadText}>{item.unreadCount}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     </Link>
@@ -45,6 +41,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
   },
   avatar: {
     width: 50,
@@ -61,13 +58,29 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   lastMessage: {
+    color: Colors.light.text,
     fontSize: 14,
   },
   meta: {
     alignItems: 'flex-end',
   },
   timestamp: {
+    color: Colors.light.text,
     fontSize: 12,
     marginBottom: 4,
+  },
+  unreadBadge: {
+    backgroundColor: Colors.light.primary,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 }); 
