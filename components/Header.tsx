@@ -4,7 +4,9 @@ import Colors from '@/constants/Colors';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { IconButton } from './IconButton';
-import { Search, UserPlus, MoreHorizontal } from 'lucide-react-native';
+import { Search, UserPlus, MoreHorizontal, Users } from 'lucide-react-native';
+import { useApiQuery } from '@/hooks/use-api';
+import { getFriends } from '@/lib/api';
 
 interface HeaderProps {
   title?: string;
@@ -14,6 +16,13 @@ interface HeaderProps {
 export function Header({ title, right }: HeaderProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
+
+  const { data: friends } = useApiQuery({
+    queryKey: ['friends'],
+    queryFn: getFriends,
+  });
+
+  const pendingRequestsCount = friends?.filter(f => f.status === 'pending').length || 0;
 
   return (
     <SafeAreaView style={{ backgroundColor: themeColors.card }}>
@@ -34,7 +43,14 @@ export function Header({ title, right }: HeaderProps) {
         <View style={styles.sideContainer}>
           {right || (
             <>
-              <IconButton icon={UserPlus} onPress={() => router.push('/add-friend')} />
+              <View>
+                <IconButton icon={Users} onPress={() => router.push('/add-friend')} />
+                {pendingRequestsCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: themeColors.primary }]}>
+                    <Text style={styles.badgeText}>{pendingRequestsCount}</Text>
+                  </View>
+                )}
+              </View>
               <IconButton icon={MoreHorizontal} onPress={() => { /* TODO: Settings */ }} />
             </>
           )}
@@ -77,5 +93,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+  },
+  badge: {
+    position: 'absolute',
+    right: -5,
+    top: -5,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 }); 

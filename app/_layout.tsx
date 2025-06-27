@@ -52,15 +52,20 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const session = useSession();
+  const { session, isLoading } = useSession();
   const router = useRouter();
   const colorScheme = useColorScheme();
 
+  // You can keep the splash screen open, or render a loading screen like we do here.
   useEffect(() => {
-    if (session.isLoading) {
-      SplashScreen.hideAsync();
+    if (isLoading) return;
+
+    if (!session) {
+      router.replace('/(auth)/login');
+    } else {
+      router.replace('/(tabs)');
     }
-  }, [session.isLoading, router]);
+  }, [isLoading, session]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

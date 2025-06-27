@@ -12,33 +12,51 @@ serve(serveWithOptions(async (req) => {
   const friendId = pathParts[pathParts.length - 1]
 
   try {
-    // --- Get all friends ---
+    // --- Get all friends and pending requests ---
     if (req.method === 'GET') {
-      // Fetch all accepted friendships for the current user
-      const { data: friendships, error: friendsError } = await supabase
-          .from('friends')
-          .select('user_id1, user_id2')
-          .or(`user_id1.eq.${user.id},user_id2.eq.${user.id}`)
-          .eq('status', 'accepted');
+      const { data: friendships, error } = await supabase
+        .from('friends')
+        .select(`
+          status,
+          created_at,
+          user_id1:users!friends_user_id1_fkey(*),
+          user_id2:users!friends_user_id2_fkey(*)
+        `)
+        .or(`user_id1.eq.${user.id},user_id2.eq.${user.id}`);
 
-      if (friendsError) throw friendsError;
-
-      // Extract the IDs of the friends
-      const friendIds = friendships.map((f: { user_id1: string, user_id2: string }) => f.user_id1 === user.id ? f.user_id2 : f.user_id1);
-
-      if (friendIds.length === 0) {
-          return new Response(JSON.stringify([]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) throw error;
+      
+      type Friendship = {
+        status: 'pending' | 'accepted',
+        created_at: string,
+        user_id1: { id: string },
+        user_id2: { id: string },
       }
 
-      // Fetch the profile information for all friends
-      const { data: friendsData, error: usersError } = await supabase
-          .from('users')
-          .select('*')
-          .in('id', friendIds);
-      
-      if (usersError) throw usersError;
+      // We need to shape the data to hide the implementation detail of user_id1 vs user_id2
+      const shapedData = friendships.map((f: Friendship) => {
+        // If the current user is user_id2, it means it's a PENDING request for them
+        // In this case, the other user is user_id1
+        if (f.user_id2.id === user.id) {
+          return {
+            status: f.status,
+            created_at: f.created_at,
+            user_id1: f.user_id1,
+            user_id2: f.user_id2,
+          }
+        }
+        // Otherwise, it's either an accepted friendship or a pending request they sent
+        // The other user is user_id2
+        return {
+          status: f.status,
+          created_at: f.created_at,
+          // For consistency on the client, we swap them
+          user_id1: f.user_id2,
+          user_id2: f.user_id1,
+        }
+      })
 
-      return new Response(JSON.stringify(friendsData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(shapedData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // --- Send a friend request ---
@@ -67,7 +85,12 @@ serve(serveWithOptions(async (req) => {
         .update({ status: 'accepted' })
         .eq('user_id1', friendId) // The sender
         .eq('user_id2', user.id)   // The receiver (current user)
-        .select()
+        .select(`
+          status,
+          created_at,
+          user_id1:users!friends_user_id1_fkey(*),
+          user_id2:users!friends_user_id2_fkey(*)
+        `)
         .single()
       
       if (error) throw error

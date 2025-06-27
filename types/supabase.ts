@@ -63,8 +63,8 @@ export interface CreateStoryPayload {
 }
 
 export interface Friend {
-  user_id1: string;
-  user_id2: string;
+  user_id1: User;
+  user_id2: User;
   status: 'pending' | 'accepted';
   created_at: string;
 } 
