@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,55 +6,143 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { DUMMY_CHATS, DUMMY_MESSAGES } from '@/constants/DummyData';
 import Colors from '@/constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send } from 'lucide-react-native';
+import { getMessages, createMessage, getUser } from '@/lib/api';
+import { Message } from '@/types/supabase';
+import { supabase } from '@/lib/supabase';
+import { User } from '@supabase/supabase-js';
+import { useColorScheme } from 'react-native';
+import { Avatar } from '@/components/Avatar';
 
 type ChatMessageProps = {
-  item: {
-    id: string;
-    text: string;
-    sender: string;
-    timestamp: string;
-  };
+  item: Message;
+  isMyMessage: boolean;
 };
 
-function ChatMessage({ item }: ChatMessageProps) {
-    const isMyMessage = item.sender === 'Me';
+function ChatMessage({ item, isMyMessage }: ChatMessageProps) {
+    const colorScheme = useColorScheme()
+    const themeColors = Colors[colorScheme ?? 'light']
+
     return (
         <View style={[styles.messageRow, { justifyContent: isMyMessage ? 'flex-end' : 'flex-start'}]}>
-            <View style={[styles.messageBubble, { backgroundColor: isMyMessage ? Colors.light.primary : Colors.light.border}]}>
-                <Text style={{ color: isMyMessage ? Colors.light.card : Colors.light.text }}>{item.text}</Text>
+            <View style={[styles.messageBubble, { backgroundColor: isMyMessage ? themeColors.primary : themeColors.border}]}>
+                <Text style={{ color: isMyMessage ? themeColors.card : themeColors.text }}>{item.content}</Text>
             </View>
         </View>
     )
 }
 
 export default function ChatScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const chat = DUMMY_CHATS.find((c) => c.id === id);
-  const [messages, setMessages] = useState(
-    DUMMY_MESSAGES[id as keyof typeof DUMMY_MESSAGES]?.slice()?.reverse() || []
-  );
+  const { id: receiverId } = useLocalSearchParams<{ id: string }>();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [receiverUser, setReceiverUser] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const colorScheme = useColorScheme()
+  const themeColors = Colors[colorScheme ?? 'light']
 
-  const handleSend = () => {
-    if (newMessage.trim() === '') return;
-    const myMessage = {
-      id: `m${Date.now()}`,
-      text: newMessage.trim(),
-      sender: 'Me',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        setCurrentUser(user);
+        
+        const [initialMessages, receiverData] = await Promise.all([
+          getMessages(receiverId),
+          getUser(receiverId),
+        ]);
+        
+        setMessages(initialMessages.slice().reverse());
+        setReceiverUser(receiverData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchInitialData();
+  }, [receiverId]);
+  
+  // Realtime subscription for new messages
+  useEffect(() => {
+    if (!receiverId) return;
+
+    const channel = supabase
+      .channel(`messages_for_${receiverId}`)
+      .on<Message>(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `receiver_id=eq.${currentUser?.id}`
+        },
+        (payload) => {
+          setMessages((prevMessages) => [payload.new, ...prevMessages]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-    setMessages((prevMessages) => [myMessage, ...prevMessages]);
+  }, [receiverId, currentUser]);
+
+  const handleSend = async () => {
+    if (newMessage.trim() === '' || !receiverId) return;
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      sender_id: currentUser!.id,
+      receiver_id: receiverId,
+      content: newMessage.trim(),
+      content_type: 'text',
+      created_at: new Date().toISOString(),
+      file_id: null,
+    };
+    
+    setMessages((prevMessages) => [optimisticMessage, ...prevMessages]);
     setNewMessage('');
+
+    try {
+      await createMessage({
+        receiver_id: receiverId,
+        content: newMessage.trim(),
+        content_type: 'text'
+      })
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      // Optionally, handle the error by removing the optimistic message
+      // setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
+    }
   };
+  
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background }}>
+        <ActivityIndicator size="large" color={themeColors.primary} />
+      </View>
+    )
+  }
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background }}>
+        <Text style={{ color: themeColors.error }}>Error: {error}</Text>
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
@@ -65,23 +153,22 @@ export default function ChatScreen() {
       >
         <Stack.Screen
           options={{
-            headerStyle: {
-              backgroundColor: Colors.light.background,
-            },
+            headerShown: true,
             headerTitle: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Image
-                  source={{ uri: chat?.avatar }}
-                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+                <Avatar 
+                  imageUrl={receiverUser?.avatar_url}
+                  fullName={receiverUser?.username}
+                  size={40}
                 />
-                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{chat?.name}</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 10 }}>{receiverUser?.username || 'Chat'}</Text>
               </View>
             ),
           }}
         />
         <FlatList
           data={messages}
-          renderItem={({ item }) => <ChatMessage item={item} />}
+          renderItem={({ item }) => <ChatMessage item={item} isMyMessage={item.sender_id === currentUser?.id} />}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 10 }}
           inverted
@@ -96,7 +183,7 @@ export default function ChatScreen() {
             multiline
           />
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Send size={20} color={Colors.light.card} />
+            <Send size={20} color={themeColors.card} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
