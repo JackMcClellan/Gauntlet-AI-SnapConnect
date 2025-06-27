@@ -24,7 +24,7 @@ serve(serveWithOptions(async (req) => {
       if (friendsError) throw friendsError;
 
       // Extract the IDs of the friends
-      const friendIds = friendships.map(f => f.user_id1 === user.id ? f.user_id2 : f.user_id1);
+      const friendIds = friendships.map((f: { user_id1: string, user_id2: string }) => f.user_id1 === user.id ? f.user_id2 : f.user_id1);
 
       if (friendIds.length === 0) {
           return new Response(JSON.stringify([]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -46,12 +46,10 @@ serve(serveWithOptions(async (req) => {
       const { receiver_id } = await req.json()
       if (!receiver_id) throw new Error('receiver_id is required')
 
-      // Ensure user_id1 is always the lower UUID to prevent duplicate requests
-      const [user_id1, user_id2] = [user.id, receiver_id].sort()
-
+      // The sender is user_id1, the receiver is user_id2
       const { data, error } = await supabase
         .from('friends')
-        .insert({ user_id1, user_id2, status: 'pending' })
+        .insert({ user_id1: user.id, user_id2: receiver_id, status: 'pending' })
         .select()
         .single()
       
@@ -79,19 +77,16 @@ serve(serveWithOptions(async (req) => {
     // --- Deny a request or remove a friend ---
     if (req.method === 'DELETE') {
       if (!friendId) throw new Error('Friend ID is required in the path')
-
-      const [user_id1, user_id2] = [user.id, friendId].sort()
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('friends')
         .delete()
-        .eq('user_id1', user_id1)
-        .eq('user_id2', user_id2)
+        .or(`(user_id1.eq.${user.id},and(user_id2.eq.${friendId})), (user_id1.eq.${friendId},and(user_id2.eq.${user.id}))`)
         .select()
         .single()
 
       if (error) throw error
-      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ message: 'Friendship removed.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {

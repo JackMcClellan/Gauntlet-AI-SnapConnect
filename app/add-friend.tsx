@@ -24,8 +24,12 @@ export default function AddFriendModal() {
     mutationFn: sendFriendRequest,
     onSuccess: (_, friendId) => {
       setSentRequests(prev => [...prev, friendId]);
-      // Optionally, invalidate queries to refetch friends list on another screen
+      queryClient.invalidateQueries({ queryKey: ['discoverable-users'] });
       queryClient.invalidateQueries({ queryKey: ['friends'] });
+    },
+    onError: (error) => {
+      console.error('Failed to send friend request:', error);
+      alert(`Failed to send friend request: ${error.message}`);
     },
   });
 
