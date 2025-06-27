@@ -9,6 +9,8 @@ import Animated, {
   withTiming,
   withRepeat,
 } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { CircleButton } from '../CircleButton';
 
 export function CoreCamera() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -17,6 +19,7 @@ export function CoreCamera() {
   const [isRecording, setIsRecording] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const longPressTimer = useRef<number | null>(null);
+  const router = useRouter();
 
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
@@ -32,8 +35,10 @@ export function CoreCamera() {
   async function takePicture() {
     if (cameraRef.current && !isRecording) {
       const photo = await cameraRef.current.takePictureAsync();
-      console.log(photo);
-      // TODO: Handle the taken picture (e.g., navigate to an editor screen)
+      router.push({
+        pathname: '/review',
+        params: { photoUri: photo.uri },
+      });
     }
   }
 
@@ -95,9 +100,9 @@ export function CoreCamera() {
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} flash={flash} ref={cameraRef}>
         <View style={styles.buttonContainer}>
-          <TouchableOpacity onPress={toggleFlash}>
+          <CircleButton onPress={toggleFlash}>
             {flash === 'on' ? <Zap size={24} stroke="white" /> : <ZapOff size={24} stroke="white" />}
-          </TouchableOpacity>
+          </CircleButton>
           
           <TouchableOpacity onPressIn={handlePressIn} onPressOut={handlePressOut}>
             <Animated.View style={[styles.captureButton, animatedStyle]}>
@@ -105,9 +110,9 @@ export function CoreCamera() {
             </Animated.View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={toggleCameraFacing}>
+          <CircleButton onPress={toggleCameraFacing}>
             <RotateCw size={24} stroke="white" />
-          </TouchableOpacity>
+          </CircleButton>
         </View>
       </CameraView>
     </View>
