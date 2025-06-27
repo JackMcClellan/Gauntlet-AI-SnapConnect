@@ -17,9 +17,10 @@ import { Send } from 'lucide-react-native';
 import { getMessages, createMessage, getUser } from '@/lib/api';
 import { Message } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
-import { User } from '@supabase/supabase-js';
 import { useColorScheme } from 'react-native';
 import { Avatar } from '@/components/Avatar';
+import { useQueryClient } from '@tanstack/react-query';
+import { useApiQuery, useApiMutation } from '@/hooks/use-api';
 
 type ChatMessageProps = {
   item: Message;
@@ -41,94 +42,71 @@ function ChatMessage({ item, isMyMessage }: ChatMessageProps) {
 
 export default function ChatScreen() {
   const { id: receiverId } = useLocalSearchParams<{ id: string }>();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [receiverUser, setReceiverUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const colorScheme = useColorScheme()
-  const themeColors = Colors[colorScheme ?? 'light']
+  const queryClient = useQueryClient();
+  const colorScheme = useColorScheme();
+  const themeColors = Colors[colorScheme ?? 'light'];
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated");
-        setCurrentUser(user);
-        
-        const [initialMessages, receiverData] = await Promise.all([
-          getMessages(receiverId),
-          getUser(receiverId),
-        ]);
-        
-        setMessages(initialMessages.slice().reverse());
-        setReceiverUser(receiverData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
+  const { data: currentUser } = useApiQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
     }
+  });
 
-    fetchInitialData();
-  }, [receiverId]);
-  
-  // Realtime subscription for new messages
-  useEffect(() => {
-    if (!receiverId) return;
+  const { data: messages, isLoading: isLoadingMessages, isError: isErrorMessages } = useApiQuery({
+    queryKey: ['messages', receiverId],
+    queryFn: () => getMessages(receiverId!),
+    enabled: !!receiverId,
+  });
 
-    const channel = supabase
-      .channel(`messages_for_${receiverId}`)
-      .on<Message>(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages',
-          filter: `receiver_id=eq.${currentUser?.id}`
-        },
-        (payload) => {
-          setMessages((prevMessages) => [payload.new, ...prevMessages]);
-        }
-      )
-      .subscribe();
+  const { data: receiverUser, isLoading: isLoadingUser } = useApiQuery({
+    queryKey: ['user', receiverId],
+    queryFn: () => getUser(receiverId!),
+    enabled: !!receiverId,
+  });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [receiverId, currentUser]);
+  const mutation = useApiMutation({
+    mutationFn: createMessage,
+    onMutate: async (newMessageData) => {
+      setNewMessage('');
+      await queryClient.cancelQueries({ queryKey: ['messages', receiverId] });
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', receiverId]);
+      
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        sender_id: currentUser!.id,
+        receiver_id: receiverId!,
+        content: newMessageData.content!,
+        content_type: 'text',
+        created_at: new Date().toISOString(),
+        file_id: null,
+      };
 
-  const handleSend = async () => {
+      queryClient.setQueryData<Message[]>(
+        ['messages', receiverId],
+        (old = []) => [optimisticMessage, ...old]
+      );
+
+      return { previousMessages };
+    },
+    onError: (err, newMessage, context) => {
+      queryClient.setQueryData(['messages', receiverId], context?.previousMessages);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', receiverId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+
+  const handleSend = () => {
     if (newMessage.trim() === '' || !receiverId) return;
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
-      sender_id: currentUser!.id,
-      receiver_id: receiverId,
-      content: newMessage.trim(),
-      content_type: 'text',
-      created_at: new Date().toISOString(),
-      file_id: null,
-    };
-    
-    setMessages((prevMessages) => [optimisticMessage, ...prevMessages]);
-    setNewMessage('');
-
-    try {
-      await createMessage({
-        receiver_id: receiverId,
-        content: newMessage.trim(),
-        content_type: 'text'
-      })
-    } catch (err) {
-      console.error("Failed to send message:", err);
-      // Optionally, handle the error by removing the optimistic message
-      // setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
-    }
+    mutation.mutate({ receiver_id: receiverId, content: newMessage.trim(), content_type: 'text' });
   };
   
-  if (loading) {
+  const isLoading = isLoadingMessages || isLoadingUser;
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background }}>
         <ActivityIndicator size="large" color={themeColors.primary} />
@@ -136,10 +114,10 @@ export default function ChatScreen() {
     )
   }
 
-  if (error) {
+  if (isErrorMessages) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background }}>
-        <Text style={{ color: themeColors.error }}>Error: {error}</Text>
+        <Text style={{ color: themeColors.error }}>Error loading messages.</Text>
       </View>
     )
   }
@@ -167,7 +145,7 @@ export default function ChatScreen() {
           }}
         />
         <FlatList
-          data={messages}
+          data={messages || []}
           renderItem={({ item }) => <ChatMessage item={item} isMyMessage={item.sender_id === currentUser?.id} />}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 10 }}

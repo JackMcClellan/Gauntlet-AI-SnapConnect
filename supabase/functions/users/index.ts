@@ -9,15 +9,18 @@ serve(serveWithOptions(async (req) => {
   const id = pathParts[pathParts.length - 1]
 
   try {
-    let data: any = null
-    let error: any = null
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
 
     if (req.method === 'GET') {
+      let data, error;
       if (id) {
-        ({ data, error } = await supabase.from('users').select('*').eq('id', id).single())
+        ({ data, error } = await supabase.from('users').select('*').eq('id', id).single());
       } else {
-        ({ data, error } = await supabase.from('users').select('*'))
+        ({ data, error } = await supabase.from('users').select('*'));
       }
+      if (error) throw error;
+      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     } else if (req.method === 'PATCH') {
       const body = await req.json()
       const updateData = {

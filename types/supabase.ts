@@ -60,4 +60,11 @@ export interface CreateStoryPayload {
   file_id: string;
   time_delay: number;
   caption?: string;
+}
+
+export interface Friend {
+  user_id1: string;
+  user_id2: string;
+  status: 'pending' | 'accepted';
+  created_at: string;
 } 

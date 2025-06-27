@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
-import { DUMMY_CHATS } from '@/constants/DummyData';
+import { Modal, View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { CheckCircle, Circle } from 'lucide-react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { useApiQuery } from '@/hooks/use-api';
+import { getFriends } from '@/lib/api';
+import { User } from '@/types/supabase';
+import { Avatar } from './Avatar';
 
 interface SendModalProps {
   isVisible: boolean;
@@ -15,7 +18,11 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
   const [sendToStory, setSendToStory] = useState(false);
   const [sendToPublic, setSendToPublic] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
-  const allFriendIds = useMemo(() => DUMMY_CHATS.map(chat => chat.id), []);
+  const { data: friends, isLoading } = useApiQuery({
+    queryKey: ['friends'],
+    queryFn: getFriends,
+  });
+  const allFriendIds = useMemo(() => friends?.map(friend => friend.id) || [], [friends]);
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
   const isSendDisabled = !sendToStory && !sendToPublic && selectedFriends.length === 0;
@@ -39,12 +46,11 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
     onClose();
   };
   
-  const renderFriendItem = ({ item }: { item: (typeof DUMMY_CHATS)[0] }) => (
+  const renderFriendItem = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.friendItem} onPress={() => handleSelectFriend(item.id)}>
       <View style={styles.friendInfo}>
-        {/* Placeholder for avatar */}
-        <View style={[styles.avatar, { backgroundColor: themeColors.border }]} />
-        <Text style={[styles.friendName, { color: themeColors.text }]}>{item.name}</Text>
+        <Avatar imageUrl={item.avatar_url} fullName={item.username} size={40} />
+        <Text style={[styles.friendName, { color: themeColors.text }]}>{item.username}</Text>
       </View>
       {selectedFriends.includes(item.id) ? (
         <CheckCircle size={24} color={themeColors.primary} />
@@ -78,21 +84,25 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
 
         <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-        <FlatList
-          data={DUMMY_CHATS}
-          renderItem={renderFriendItem}
-          keyExtractor={item => item.id}
-          ListHeaderComponent={
-            <View style={[styles.listHeaderContainer, { backgroundColor: themeColors.background }]}>
-                <Text style={[styles.listHeaderText, { color: themeColors.text }]}>Friends</Text>
-                <TouchableOpacity onPress={handleToggleSelectAll}>
-                    <Text style={{ color: themeColors.primary, fontWeight: 'bold' }}>
-                        {selectedFriends.length === allFriendIds.length ? 'Deselect All' : 'Select All'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-          }
-        />
+        {isLoading ? (
+          <ActivityIndicator style={{ marginTop: 20 }} />
+        ) : (
+          <FlatList
+            data={friends}
+            renderItem={renderFriendItem}
+            keyExtractor={item => item.id}
+            ListHeaderComponent={
+              <View style={[styles.listHeaderContainer, { backgroundColor: themeColors.background }]}>
+                  <Text style={[styles.listHeaderText, { color: themeColors.text }]}>Friends</Text>
+                  <TouchableOpacity onPress={handleToggleSelectAll}>
+                      <Text style={{ color: themeColors.primary, fontWeight: 'bold' }}>
+                          {selectedFriends.length === allFriendIds.length ? 'Deselect All' : 'Select All'}
+                      </Text>
+                  </TouchableOpacity>
+              </View>
+            }
+          />
+        )}
 
         <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
@@ -162,12 +172,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 15,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#ccc',
     },
     friendName: {
       fontSize: 16,

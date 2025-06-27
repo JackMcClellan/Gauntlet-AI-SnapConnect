@@ -4,31 +4,41 @@ import { createSupabaseClient, serveWithOptions } from '../_shared/supabase-clie
 
 serve(serveWithOptions(async (req) => {
   const supabase = createSupabaseClient(req)
-  const { searchParams } = new URL(req.url)
 
   try {
-    let data: any = null
-    let error: any = null
-
     if (req.method === 'GET') {
-      const receiverId = searchParams.get('receiver_id')
+      const { pathname } = new URL(req.url)
+      const pathParts = pathname.split('/')
+      const receiverId = pathParts[pathParts.length - 1]
+
       if (!receiverId) {
-        return new Response(JSON.stringify({ error: 'receiver_id query parameter is required' }), {
+        return new Response(JSON.stringify({ error: 'receiver_id path parameter is required' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         throw new Error('User not authenticated')
       }
       
-      ({ data, error } = await supabase.from('messages')
+      const filter = `and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`
+      
+      const { data, error } = await supabase.from('messages')
         .select('*')
-        .or(`(sender_id.eq.${user.id},and(receiver_id.eq.${receiverId})), (sender_id.eq.${receiverId},and(receiver_id.eq.${user.id}))`)
-        .order('created_at'))
+        .or(filter)
+        .order('created_at', { ascending: false })
+        .limit(20)
 
-    } else if (req.method === 'POST') {
+      if (error) throw error
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    
+    if (req.method === 'POST') {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
       
@@ -39,27 +49,22 @@ serve(serveWithOptions(async (req) => {
         sender_id: user.id
       }
 
-      ({ data, error } = await supabase.from('messages').insert(insertData).select().single())
-    } else {
-      return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+      const { data, error } = await supabase.from('messages').insert(insertData).select().single()
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    
+    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
         status: 405,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (error) {
-      console.error(error)
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    return new Response(String(err?.message ?? err), {
+    console.error(err)
+    return new Response(JSON.stringify({ error: err.message ?? 'An unknown error occurred' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -7,7 +7,8 @@ import {
   CreateMessagePayload,
   Story,
   CreateStoryPayload,
-  Conversation
+  Conversation,
+  Friend
 } from '../types/supabase';
 
 const FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL + '/functions/v1';
@@ -51,6 +52,19 @@ export const getUser = (id: string) =>
 export const updateUser = (id: string, payload: UpdateUserPayload) => 
   apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 
+export const getFriends = () =>
+  apiFetch<User[]>(`/friends`);
+
+// --- Friend Management ---
+export const sendFriendRequest = (receiverId: string) =>
+  apiFetch<Friend>('/friends', { method: 'POST', body: JSON.stringify({ receiver_id: receiverId }) });
+
+export const acceptFriendRequest = (senderId: string) =>
+  apiFetch<Friend>(`/friends/${senderId}`, { method: 'PATCH' });
+
+export const removeFriend = (friendId: string) =>
+  apiFetch<Friend>(`/friends/${friendId}`, { method: 'DELETE' });
+
 // --- Files ---
 export const uploadFile = async (file: File, caption?: string, tags?: string[]) => {
   const { data: { session } } = await supabase.auth.getSession();
@@ -72,9 +86,32 @@ export const uploadFile = async (file: File, caption?: string, tags?: string[]) 
 export const deleteFile = (id: string) => 
   apiFetch<DBFile>(`/files/${id}`, { method: 'DELETE' });
 
+export const uploadFileFromUri = async (uri: string, caption?: string, tags?: string[]) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('User not authenticated');
+
+  const formData = new FormData();
+  // The type assertion is needed because React Native's FormData.append expects a different type
+  formData.append('file', {
+    uri,
+    name: uri.split('/').pop(),
+    type: 'image/jpeg', // Assuming jpeg, this could be made dynamic
+  } as any);
+
+  if (caption) formData.append('caption', caption);
+  if (tags) formData.append('tags', tags.join(','));
+
+  const response = await fetch(`${FUNCTION_URL}/files`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+    body: formData,
+  });
+  return handleResponse<DBFile>(response);
+};
+
 // --- Messages ---
 export const getMessages = (receiverId: string) =>
-  apiFetch<Message[]>(`/messages?receiver_id=${receiverId}`);
+  apiFetch<Message[]>(`/messages/${receiverId}`);
 
 export const createMessage = (payload: CreateMessagePayload) =>
   apiFetch<Message>('/messages', { method: 'POST', body: JSON.stringify(payload) });

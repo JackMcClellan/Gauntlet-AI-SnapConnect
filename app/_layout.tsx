@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from '@/components/useColorScheme';
 import { SessionProvider, useSession } from '@/providers/auth';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -18,6 +19,8 @@ export const unstable_settings = {
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -41,27 +44,23 @@ export default function RootLayout() {
 
   return (
     <SessionProvider>
-      <RootLayoutNav />
+      <QueryClientProvider client={queryClient}>
+        <RootLayoutNav />
+      </QueryClientProvider>
     </SessionProvider>
   );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const { session, isLoading } = useSession();
+  const session = useSession();
   const router = useRouter();
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
-    if (isLoading) return;
-
-    const inTabsGroup = session;
-
-    if (inTabsGroup) {
-      router.replace('/(tabs)');
-    } else {
-      router.replace('/(auth)/login');
+    if (session.isLoading) {
+      SplashScreen.hideAsync();
     }
-  }, [session, isLoading, router]);
+  }, [session.isLoading, router]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
