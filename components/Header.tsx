@@ -34,7 +34,7 @@ export function Header({ title, right }: HeaderProps) {
         <View style={styles.sideContainer}>
           {right || (
             <>
-              <IconButton icon={UserPlus} onPress={() => { /* TODO: Add Friend */ }} />
+              <IconButton icon={UserPlus} onPress={() => router.push('/add-friend')} />
               <IconButton icon={MoreHorizontal} onPress={() => { /* TODO: Settings */ }} />
             </>
           )}

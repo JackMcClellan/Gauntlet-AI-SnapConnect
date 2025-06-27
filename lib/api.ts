@@ -52,10 +52,14 @@ export const getUser = (id: string) =>
 export const updateUser = (id: string, payload: UpdateUserPayload) => 
   apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 
-export const getFriends = () =>
-  apiFetch<User[]>(`/friends`);
+export async function getDiscoverableUsers(): Promise<User[]> {
+  return apiFetch('/users');
+}
 
 // --- Friend Management ---
+export const getFriends = () =>
+  apiFetch<Friend[]>(`/friends`);
+
 export const sendFriendRequest = (receiverId: string) =>
   apiFetch<Friend>('/friends', { method: 'POST', body: JSON.stringify({ receiver_id: receiverId }) });
 

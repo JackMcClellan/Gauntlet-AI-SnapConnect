@@ -69,6 +69,8 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Settings' }} />
         <Stack.Screen name="profile" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="review" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="add-friend" options={{ presentation: 'modal', title: 'Add Friends' }} />
       </Stack>
     </ThemeProvider>
   );
