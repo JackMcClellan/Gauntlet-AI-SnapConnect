@@ -1,4 +1,3 @@
-
 -----------------------------------------
 -- TABLES
 -----------------------------------------
@@ -79,3 +78,23 @@ alter table public.stories enable row level security;
 create policy "Users can view all stories." on public.stories for select using (true);
 create policy "Users can insert their own stories." on public.stories for insert with check (auth.uid() = user_id);
 create policy "Users can delete their own stories." on public.stories for delete using (auth.uid() = user_id);
+
+-- FRIENDS TABLE
+-- Stores friendship relationships between users.
+create table public.friends (
+  user_id1 uuid not null references public.users(id) on delete cascade,
+  user_id2 uuid not null references public.users(id) on delete cascade,
+  status text not null check (status in ('pending', 'accepted')),
+  created_at timestamp with time zone default now() not null,
+  primary key (user_id1, user_id2),
+  constraint check_different_users check (user_id1 <> user_id2)
+);
+
+-- Enable Row-Level Security
+alter table public.friends enable row level security;
+
+-- Policies for FRIENDS table
+create policy "Users can see their own friendships." on public.friends for select using (auth.uid() = user_id1 or auth.uid() = user_id2);
+create policy "Users can create friendships." on public.friends for insert with check (auth.uid() = user_id1);
+create policy "Users can update their friendship status." on public.friends for update using (auth.uid() = user_id2); -- e.g., to accept a request
+create policy "Users can remove their own friendships." on public.friends for delete using (auth.uid() = user_id1 or auth.uid() = user_id2);

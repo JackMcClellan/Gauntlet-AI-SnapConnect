@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ImageBackground, SafeAreaView, FlatList, TouchableOpacity, TextInput, Alert, Platform, GestureResponderEvent } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground, SafeAreaView, FlatList, TouchableOpacity, TextInput, Alert, Platform, GestureResponderEvent, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { X, Sparkles, Download, Send, ArrowLeft } from 'lucide-react-native';
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent } from 'react-native-gesture-handler';
@@ -9,6 +9,7 @@ import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import { CircleButton } from '@/components/CircleButton';
 import { SendModal } from '@/components/SendModal';
+import { sendSnap } from '@/lib/api';
 
 const FILTERS = [
   { name: 'None', color: 'transparent' },
@@ -78,6 +79,7 @@ export default function ReviewScreen() {
   const nextId = useRef(0);
   const [isEffectsMenuVisible, setIsEffectsMenuVisible] = useState(false);
   const [isSendModalVisible, setIsSendModalVisible] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
 
@@ -101,10 +103,30 @@ export default function ReviewScreen() {
     );
   }
 
-  const handleSend = (selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }) => {
-    console.log('Sending to:', selections);
-    // Here you would implement the actual logic to send the story/messages
-    router.back(); // Go back to camera after sending
+  const handleSend = async (selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }) => {
+    if (!photoUri) {
+      Alert.alert('Error', 'No photo to send.');
+      return;
+    }
+    setIsSending(true);
+
+    try {
+      const uri = await viewShotRef.current?.capture?.();
+      if (!uri) {
+        throw new Error('Could not capture image.');
+      }
+      
+      await sendSnap(uri, selections);
+
+      Alert.alert('Success', 'Your photo has been sent!');
+      router.replace('/(tabs)/messages');
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+        console.error('Failed to send photo:', error);
+        Alert.alert('Error', `There was a problem sending your photo: ${message}`);
+    } finally {
+        setIsSending(false);
+    }
   };
 
   const handleTapToAddText = (event: GestureResponderEvent) => {
@@ -227,6 +249,13 @@ export default function ReviewScreen() {
             onClose={() => setIsSendModalVisible(false)}
             onSend={handleSend}
         />
+
+        {isSending && (
+            <View style={styles.sendingOverlay}>
+                <ActivityIndicator size="large" color="white" />
+                <Text style={{ color: 'white', marginTop: 10 }}>Sending...</Text>
+            </View>
+        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -333,4 +362,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'white',
   },
+  sendingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  }
 }); 
