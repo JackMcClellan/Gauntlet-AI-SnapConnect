@@ -1,6 +1,6 @@
 -- This function retrieves a list of conversations for a specific user.
--- A "conversation" includes all accepted friends, even if no messages have been exchanged.
--- It returns the other user's profile and the last message, or the friendship creation date if no messages exist.
+-- A "conversation" is defined as any interaction with another user, either through an accepted friendship
+-- or by exchanging messages. It returns the other user's profile and the last message details.
 create or replace function get_user_conversations(p_user_id uuid)
 returns table (
     other_user_id uuid,
@@ -14,19 +14,30 @@ returns table (
 language sql
 security definer
 as $$
-    with friends as (
-        -- Find all accepted friends of the specified user
-        select
-            case
-                when user_id1 = p_user_id then user_id2
-                else user_id1
-            end as friend_id,
-            created_at as friendship_created_at
-        from public.friends
-        where (user_id1 = p_user_id or user_id2 = p_user_id) and status = 'accepted'
+    with conversation_partners as (
+        -- Get all unique users who are either accepted friends or have exchanged messages
+        select user_id from (
+            -- Accepted friends
+            select
+                case
+                    when user_id1 = p_user_id then user_id2
+                    else user_id1
+                end as user_id
+            from public.friends
+            where (user_id1 = p_user_id or user_id2 = p_user_id) and status = 'accepted'
+            union
+            -- Users from messages
+            select
+                case
+                    when sender_id = p_user_id then receiver_id
+                    else sender_id
+                end as user_id
+            from public.messages
+            where sender_id = p_user_id or receiver_id = p_user_id
+        ) as all_partners
     ),
     last_messages as (
-        -- Find the last message for each conversation
+        -- Find the last message for each conversation, partitioned by the other user
         select
             id as message_id,
             content_type,
@@ -44,18 +55,35 @@ as $$
             order by created_at desc) as rn
         from public.messages
         where sender_id = p_user_id or receiver_id = p_user_id
+    ),
+    friendship_details as (
+        -- Get friendship status and creation date to use for sorting and default messages
+        select
+            case
+                when user_id1 = p_user_id then user_id2
+                else user_id1
+            end as friend_id,
+            created_at as friendship_created_at
+        from public.friends
+        where (user_id1 = p_user_id or user_id2 = p_user_id) and status = 'accepted'
     )
-    -- Combine friends with their last message (if any)
+    -- Combine partners with their last message and user details
     select
-        f.friend_id as other_user_id,
+        cp.user_id as other_user_id,
         u.username as other_user_username,
         u.avatar_url as other_user_avatar_url,
         lm.message_id as last_message_id,
         coalesce(lm.content_type, 'text') as last_message_content_type,
-        coalesce(lm.content, 'You are now friends.') as last_message_content,
-        coalesce(lm.created_at, f.friendship_created_at) as last_message_created_at
-    from friends f
-    join public.users u on u.id = f.friend_id
-    left join last_messages lm on lm.other_user_id = f.friend_id and lm.rn = 1
+        coalesce(lm.content, 
+            case 
+                when fd.friend_id is not null then 'You are now friends.' 
+                else 'Start the conversation!' 
+            end
+        ) as last_message_content,
+        coalesce(lm.created_at, fd.friendship_created_at, u.created_at) as last_message_created_at
+    from conversation_partners cp
+    join public.users u on u.id = cp.user_id
+    left join last_messages lm on lm.other_user_id = cp.user_id and lm.rn = 1
+    left join friendship_details fd on fd.friend_id = cp.user_id
     order by last_message_created_at desc;
 $$; 

@@ -5,7 +5,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useApiQuery } from '@/hooks/use-api';
 import { getFriends } from '@/lib/api';
-import { User } from '@/types/supabase';
+import { Friend, User } from '@/types/supabase';
 import { Avatar } from './Avatar';
 
 interface SendModalProps {
@@ -22,7 +22,14 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
     queryKey: ['friends'],
     queryFn: getFriends,
   });
-  const allFriendIds = useMemo(() => friends?.map(friend => friend.id) || [], [friends]);
+
+  const acceptedFriends = useMemo(() => {
+    if (!friends) return [];
+    return friends.filter(f => f.status === 'accepted');
+  }, [friends]);
+
+  const allFriendIds = useMemo(() => acceptedFriends.map(friend => friend.other_user.id), [acceptedFriends]);
+
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
   const isSendDisabled = !sendToStory && !sendToPublic && selectedFriends.length === 0;
@@ -46,19 +53,22 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
     onClose();
   };
   
-  const renderFriendItem = ({ item }: { item: User }) => (
-    <TouchableOpacity style={styles.friendItem} onPress={() => handleSelectFriend(item.id)}>
-      <View style={styles.friendInfo}>
-        <Avatar imageUrl={item.avatar_url} fullName={item.username} size={40} />
-        <Text style={[styles.friendName, { color: themeColors.text }]}>{item.username}</Text>
-      </View>
-      {selectedFriends.includes(item.id) ? (
-        <CheckCircle size={24} color={themeColors.primary} />
-      ) : (
-        <Circle size={24} color={themeColors.border} />
-      )}
-    </TouchableOpacity>
-  );
+  const renderFriendItem = ({ item }: { item: Friend }) => {
+    const friendProfile = item.other_user;
+    return (
+      <TouchableOpacity style={styles.friendItem} onPress={() => handleSelectFriend(friendProfile.id)}>
+        <View style={styles.friendInfo}>
+          <Avatar imageUrl={friendProfile.avatar_url} fullName={friendProfile.username} size={40} />
+          <Text style={[styles.friendName, { color: themeColors.text }]}>{friendProfile.username}</Text>
+        </View>
+        {selectedFriends.includes(friendProfile.id) ? (
+          <CheckCircle size={24} color={themeColors.primary} />
+        ) : (
+          <Circle size={24} color={themeColors.border} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <Modal
@@ -88,9 +98,9 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
           <ActivityIndicator style={{ marginTop: 20 }} />
         ) : (
           <FlatList
-            data={friends}
+            data={acceptedFriends}
             renderItem={renderFriendItem}
-            keyExtractor={item => item.id}
+            keyExtractor={item => item.other_user.id}
             ListHeaderComponent={
               <View style={[styles.listHeaderContainer, { backgroundColor: themeColors.background }]}>
                   <Text style={[styles.listHeaderText, { color: themeColors.text }]}>Friends</Text>

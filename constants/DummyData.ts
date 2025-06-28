@@ -80,4 +80,39 @@ export const DUMMY_STORIES = {
   '4': [ // Builder Bob
     { id: 's7', type: 'image', url: 'https://picsum.photos/seed/s7/1080/1920', duration: 5000, timestamp: '5h ago' },
   ],
-}; 
+};
+
+export const DUMMY_DISCOVER_CONTENT = [
+  { id: 'd1', type: 'image', url: 'https://picsum.photos/seed/d1/400/600', userId: '1' },
+  { id: 'd2', type: 'video', url: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', userId: '2' },
+  { id: 'd3', type: 'image', url: 'https://picsum.photos/seed/d3/400/600', userId: '3' },
+  { id: 'd4', type: 'image', url: 'https://picsum.photos/seed/d4/400/600', userId: '4' },
+  { id: 'd5', type: 'image', url: 'https://picsum.photos/seed/d5/400/600', userId: '5' },
+  { id: 'd6', type: 'video', url: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', userId: '6' },
+  { id: 'd7', type: 'image', url: 'https://picsum.photos/seed/d7/400/600', userId: '1' },
+  { id: 'd8', type: 'image', url: 'https://picsum.photos/seed/d8/400/600', userId: '2' },
+];
+
+export const DUMMY_USERS_WITH_LOCATION = [
+  {
+    id: '1',
+    username: 'Logan',
+    avatar_url: 'https://i.pravatar.cc/150?u=logan',
+    latitude: 34.052235,
+    longitude: -118.243683,
+  },
+  {
+    id: '2',
+    username: 'Amy',
+    avatar_url: 'https://i.pravatar.cc/150?u=amy',
+    latitude: 34.055,
+    longitude: -118.25,
+  },
+  {
+    id: '3',
+    username: 'Ravi',
+    avatar_url: 'https://i.pravatar.cc/150?u=ravi',
+    latitude: 34.048,
+    longitude: -118.24,
+  },
+]; 

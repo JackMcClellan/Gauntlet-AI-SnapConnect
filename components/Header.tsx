@@ -6,7 +6,9 @@ import { router } from 'expo-router';
 import { IconButton } from './IconButton';
 import { Search, UserPlus, MoreHorizontal, Users } from 'lucide-react-native';
 import { useApiQuery } from '@/hooks/use-api';
-import { getFriends } from '@/lib/api';
+import { getFriends, getUser } from '@/lib/api';
+import { useSession } from '@/providers/auth';
+import { Avatar } from './Avatar';
 
 interface HeaderProps {
   title?: string;
@@ -16,13 +18,22 @@ interface HeaderProps {
 export function Header({ title, right }: HeaderProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
+  const { signOut, session } = useSession();
+
+  const { data: user, isLoading: isLoadingUser } = useApiQuery({
+    queryKey: ['user', session?.user?.id],
+    queryFn: () => getUser(session!.user!.id),
+    enabled: !!session?.user?.id,
+  });
 
   const { data: friends } = useApiQuery({
     queryKey: ['friends'],
     queryFn: getFriends,
   });
 
-  const pendingRequestsCount = friends?.filter(f => f.status === 'pending').length || 0;
+
+
+  const pendingRequestsCount = friends?.filter(f => f.status === 'pending' && f.type === 'incoming').length || 0;
 
   return (
     <SafeAreaView style={{ backgroundColor: themeColors.card }}>
@@ -30,19 +41,18 @@ export function Header({ title, right }: HeaderProps) {
       <View style={[styles.headerContainer, { borderBottomColor: themeColors.background }]}>
         <View style={styles.sideContainer}>
           <Pressable onPress={() => router.push('/profile')} style={[styles.avatarButton, {backgroundColor: themeColors.background}]}>
-            <Image
-              source={{ uri: 'https://placekitten.com/g/50/50' }} // Placeholder
-              style={styles.avatar}
-            />
+          <Avatar
+            imageUrl={user?.avatar_url}
+            fullName={user?.username}
+            size={40}
+          />
           </Pressable>
-          <IconButton icon={Search} onPress={() => { /* TODO: Search Dropdown */ }} />
         </View>
 
         {title && <Text style={[styles.headerTitle, { color: themeColors.text }]}>{title}</Text>}
 
         <View style={styles.sideContainer}>
           {right || (
-            <>
               <View>
                 <IconButton icon={Users} onPress={() => router.push('/add-friend')} />
                 {pendingRequestsCount > 0 && (
@@ -51,8 +61,6 @@ export function Header({ title, right }: HeaderProps) {
                   </View>
                 )}
               </View>
-              <IconButton icon={MoreHorizontal} onPress={() => { /* TODO: Settings */ }} />
-            </>
           )}
         </View>
       </View>

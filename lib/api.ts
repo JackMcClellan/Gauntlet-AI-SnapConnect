@@ -90,6 +90,28 @@ export const uploadFile = async (file: File, caption?: string, tags?: string[]) 
 export const deleteFile = (id: string) => 
   apiFetch<DBFile>(`/files/${id}`, { method: 'DELETE' });
 
+export const sendSnap = async (uri: string, selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('User not authenticated');
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri,
+    name: uri.split('/').pop(),
+    type: 'image/jpeg',
+  } as any);
+  
+  formData.append('toStory', String(selections.toStory));
+  formData.append('toFriends', JSON.stringify(selections.toFriends));
+
+  const response = await fetch(`${FUNCTION_URL}/send-snap`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+    body: formData,
+  });
+  return handleResponse<{ success: boolean; fileId: string }>(response);
+};
+
 export const uploadFileFromUri = async (uri: string, caption?: string, tags?: string[]) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('User not authenticated');

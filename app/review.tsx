@@ -9,7 +9,7 @@ import ViewShot from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
 import { CircleButton } from '@/components/CircleButton';
 import { SendModal } from '@/components/SendModal';
-import { uploadFileFromUri, createMessage, createStory } from '@/lib/api';
+import { sendSnap } from '@/lib/api';
 
 const FILTERS = [
   { name: 'None', color: 'transparent' },
@@ -111,39 +111,19 @@ export default function ReviewScreen() {
     setIsSending(true);
 
     try {
-      // Step 1: Upload the image and get the file ID
-      // For now, we capture the view. This can be changed to upload the original `photoUri` directly.
       const uri = await viewShotRef.current?.capture?.();
       if (!uri) {
         throw new Error('Could not capture image.');
       }
       
-      const fileRecord = await uploadFileFromUri(uri, 'A new SnapConnect photo!');
-      const fileId = fileRecord.id;
-
-      // Step 2: Create a story if selected
-      if (selections.toStory) {
-        await createStory({
-            file_id: fileId,
-            time_delay: 10, // Default 10 seconds
-        });
-      }
-      
-      // Step 3: Send messages to selected friends
-      const messagePromises = selections.toFriends.map(friendId => 
-          createMessage({
-              receiver_id: friendId,
-              content_type: 'file',
-              file_id: fileId,
-          })
-      );
-      await Promise.all(messagePromises);
+      await sendSnap(uri, selections);
 
       Alert.alert('Success', 'Your photo has been sent!');
-      router.replace('/messages');
+      router.replace('/(tabs)/messages');
     } catch (error) {
+        const message = error instanceof Error ? error.message : 'An unknown error occurred.';
         console.error('Failed to send photo:', error);
-        Alert.alert('Error', 'There was a problem sending your photo.');
+        Alert.alert('Error', `There was a problem sending your photo: ${message}`);
     } finally {
         setIsSending(false);
     }

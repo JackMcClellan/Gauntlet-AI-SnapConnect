@@ -37,7 +37,7 @@ export default function MessagesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: themeColors.background }}>
-      <Header title="Chat" />
+      <Header title="Messages" />
       <FlatList
         data={conversations || []}
         renderItem={({ item }) => <MessageCard item={item} />}

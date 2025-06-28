@@ -32,7 +32,7 @@ function FriendRequestCard({ friend, themeColors }: { friend: Friend, themeColor
     onError: (err) => Alert.alert('Error', `Failed to decline: ${err.message}`)
   });
 
-  const friendProfile = friend.user_id1;
+  const friendProfile = friend.other_user;
 
   return (
     <View style={[styles.userRow, { borderBottomColor: themeColors.border }]}>
@@ -82,9 +82,9 @@ export default function AddFriendModal() {
 
   // --- Memos ---
   const pendingRequests = useMemo(() => {
-    if (!friends || !session?.user) return [];
-    return friends.filter(f => f.status === 'pending' && f.user_id2.id === session.user.id);
-  }, [friends, session]);
+    if (!friends) return [];
+    return friends.filter(f => f.type === 'incoming');
+  }, [friends]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -131,7 +131,7 @@ export default function AddFriendModal() {
         {isLoadingFriends ? <ActivityIndicator color={themeColors.primary} /> :
          friendsError ? <Text style={{color: 'red'}}>{friendsError.message}</Text> :
          pendingRequests.length === 0 ? <Text style={{color: themeColors.text, textAlign: 'center', marginTop: 10}}>No pending requests.</Text> :
-         pendingRequests.map(req => <FriendRequestCard key={req.user_id1.id} friend={req} themeColors={themeColors} />)
+         pendingRequests.map(req => <FriendRequestCard key={req.other_user.id} friend={req} themeColors={themeColors} />)
         }
       </View>
 

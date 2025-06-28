@@ -4,13 +4,16 @@ import { createSupabaseClient, serveWithOptions } from '../_shared/supabase-clie
 
 serve(serveWithOptions(async (req) => {
   const supabase = createSupabaseClient(req)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('User not authenticated')
+
 
   try {
+    // --- Get messages for a conversation ---
     if (req.method === 'GET') {
       const { pathname } = new URL(req.url)
       const pathParts = pathname.split('/')
       const receiverId = pathParts[pathParts.length - 1]
-
       if (!receiverId) {
         return new Response(JSON.stringify({ error: 'receiver_id path parameter is required' }), {
           status: 400,
@@ -18,26 +21,31 @@ serve(serveWithOptions(async (req) => {
         })
       }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('User not authenticated')
-      }
-      
       const filter = `and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`
       
       const { data, error } = await supabase.from('messages')
-        .select('*')
+        .select('*, file:files ( storage_path )')
         .or(filter)
         .order('created_at', { ascending: false })
         .limit(20)
 
       if (error) throw error
 
-      return new Response(JSON.stringify(data), {
+      const messagesWithUrls = data.map((message: any) => {
+        const file = message.file as { storage_path: string } | null;
+        if (file && file.storage_path) {
+          const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(file.storage_path);
+          return { ...message, file_url: publicUrl, file: undefined };
+        }
+        return { ...message, file_url: null };
+      });
+
+      return new Response(JSON.stringify(messagesWithUrls), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    
+
+    // --- Create a new message ---
     if (req.method === 'POST') {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
@@ -57,7 +65,7 @@ serve(serveWithOptions(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    
+
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
         status: 405,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

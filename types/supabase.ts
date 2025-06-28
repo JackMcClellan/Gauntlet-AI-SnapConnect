@@ -23,6 +23,7 @@ export interface Message {
   content: string | null;
   file_id: string | null;
   created_at: string;
+  file_url?: string | null;
 }
 
 export interface Story {
@@ -38,11 +39,11 @@ export interface Story {
 
 export interface Conversation {
   other_user_id: string;
-  other_user_username: string | null;
-  other_user_avatar_url: string | null;
+  other_user_username: string;
+  other_user_avatar_url: string;
   last_message_id: string;
-  last_message_content_type: 'text' | 'file';
-  last_message_content: string | null;
+  last_message_content_type: string;
+  last_message_content: string;
   last_message_created_at: string;
 }
 
@@ -63,8 +64,10 @@ export interface CreateStoryPayload {
 }
 
 export interface Friend {
-  user_id1: User;
-  user_id2: User;
   status: 'pending' | 'accepted';
   created_at: string;
+  user_id1?: User;
+  user_id2?: User;
+  other_user: User;
+  type: 'incoming' | 'outgoing' | 'friend';
 } 

@@ -9,6 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  useColorScheme,
+  Pressable,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import Colors from '@/constants/Colors';
@@ -17,32 +20,63 @@ import { Send } from 'lucide-react-native';
 import { getMessages, createMessage, getUser } from '@/lib/api';
 import { Message } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
-import { useColorScheme } from 'react-native';
 import { Avatar } from '@/components/Avatar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiQuery, useApiMutation } from '@/hooks/use-api';
+import { Image } from 'expo-image';
 
 type ChatMessageProps = {
   item: Message;
   isMyMessage: boolean;
+  onSelectMedia: (uri: string) => void;
 };
 
-function ChatMessage({ item, isMyMessage }: ChatMessageProps) {
+function ChatMessage({ item, isMyMessage, onSelectMedia }: ChatMessageProps) {
     const colorScheme = useColorScheme()
     const themeColors = Colors[colorScheme ?? 'light']
 
     return (
         <View style={[styles.messageRow, { justifyContent: isMyMessage ? 'flex-end' : 'flex-start'}]}>
-            <View style={[styles.messageBubble, { backgroundColor: isMyMessage ? themeColors.primary : themeColors.border}]}>
-                <Text style={{ color: isMyMessage ? themeColors.card : themeColors.text }}>{item.content}</Text>
+            <View style={[
+                styles.messageBubble, 
+                { backgroundColor: isMyMessage ? themeColors.primary : themeColors.border },
+                item.file_url && { padding: 2, width: 200, height: 200 }
+            ]}>
+                {item.file_url ? (
+                    <Pressable onPress={() => onSelectMedia(item.file_url!)}>
+                        <Image source={{ uri: item.file_url }} style={styles.chatImage} contentFit="cover" />
+                    </Pressable>
+                ) : (
+                    <Text style={{ color: isMyMessage ? themeColors.card : themeColors.text }}>{item.content}</Text>
+                )}
             </View>
         </View>
     )
 }
 
+function MediaModal({ uri, onDismiss }: { uri: string | null, onDismiss: () => void }) {
+  if (!uri) return null;
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={!!uri}
+      onRequestClose={onDismiss}
+    >
+      <SafeAreaView style={styles.modalContainer} onTouchEnd={onDismiss}>
+        <Image source={{ uri }} style={styles.fullscreenImage} contentFit="contain" />
+        <TouchableOpacity style={styles.closeButton} onPress={onDismiss}>
+            <Text style={styles.closeButtonText}>Close</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
 export default function ChatScreen() {
   const { id: receiverId } = useLocalSearchParams<{ id: string }>();
   const [newMessage, setNewMessage] = useState('');
+  const [selectedMediaUri, setSelectedMediaUri] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
@@ -121,9 +155,9 @@ export default function ChatScreen() {
       </View>
     )
   }
-
+  
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -134,36 +168,50 @@ export default function ChatScreen() {
             headerShown: true,
             headerTitle: () => (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Avatar 
-                  imageUrl={receiverUser?.avatar_url}
-                  fullName={receiverUser?.username}
-                  size={40}
-                />
-                <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 10 }}>{receiverUser?.username || 'Chat'}</Text>
+                {receiverUser ? (
+                  <>
+                    <Avatar 
+                      imageUrl={receiverUser.avatar_url}
+                      fullName={receiverUser.username}
+                      size={36}
+                    />
+                    <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 10, color: themeColors.text }}>
+                      {receiverUser.username || 'Chat'}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ fontWeight: 'bold', fontSize: 16, color: themeColors.text }}>
+                    Chat
+                  </Text>
+                )}
               </View>
             ),
+            headerStyle: { backgroundColor: themeColors.background },
+            headerTintColor: themeColors.primary,
           }}
         />
         <FlatList
           data={messages || []}
-          renderItem={({ item }) => <ChatMessage item={item} isMyMessage={item.sender_id === currentUser?.id} />}
+          renderItem={({ item }) => <ChatMessage item={item} isMyMessage={item.sender_id === currentUser?.id} onSelectMedia={setSelectedMediaUri} />}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 10 }}
+          contentContainerStyle={{ padding: 10, backgroundColor: themeColors.background }}
           inverted
         />
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: themeColors.background, color: themeColors.text }]}
             placeholder="Type a message..."
+            placeholderTextColor={themeColors.text}
             value={newMessage}
             onChangeText={setNewMessage}
             multiline
           />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+          <TouchableOpacity style={[styles.sendButton, { backgroundColor: themeColors.primary }]} onPress={handleSend}>
             <Send size={20} color={themeColors.card} />
           </TouchableOpacity>
         </View>
+        <MediaModal uri={selectedMediaUri} onDismiss={() => setSelectedMediaUri(null)} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -172,11 +220,9 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   messageRow: {
     flexDirection: 'row',
@@ -187,17 +233,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     maxWidth: '80%',
   },
+  chatImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-    backgroundColor: Colors.light.card,
   },
   input: {
     flex: 1,
-    backgroundColor: Colors.light.background,
     borderRadius: 20,
     paddingHorizontal: 15,
     marginRight: 10,
@@ -205,11 +253,31 @@ const styles = StyleSheet.create({
     maxHeight: 120,
   },
   sendButton: {
-    backgroundColor: Colors.light.primary,
     borderRadius: 20,
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '90%',
+    height: '80%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    padding: 10,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  }
 }); 
