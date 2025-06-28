@@ -14,7 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "snap-fix",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +28,9 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -49,7 +55,12 @@
           "savePhotosPermission": "Allow SnapConnect to save photos.",
           "preventAutomaticLimitedAccessAlert": true
         }
-      ]
+      ],
+      [  "expo-maps",
+          {
+            "requestLocationPermission": true,
+            "locationPermission": "Allow SnapConnect to use your location"
+          }]
     ],
     "experiments": {
       "typedRoutes": true
