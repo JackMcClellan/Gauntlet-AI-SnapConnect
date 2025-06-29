@@ -5,7 +5,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useApiQuery } from '@/hooks/use-api';
 import { getFriends } from '@/lib/api';
-import { Friend, User } from '@/types/supabase';
+import { Friend } from '@/types/supabase';
 import { Avatar } from './Avatar';
 
 interface SendModalProps {
@@ -25,7 +25,7 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
 
   const acceptedFriends = useMemo(() => {
     if (!friends) return [];
-    return friends.filter(f => f.status === 'accepted');
+    return friends.filter(f => f.status === 'accepted' && f.other_user);
   }, [friends]);
 
   const allFriendIds = useMemo(() => acceptedFriends.map(friend => friend.other_user.id), [acceptedFriends]);
@@ -55,6 +55,8 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
   
   const renderFriendItem = ({ item }: { item: Friend }) => {
     const friendProfile = item.other_user;
+    if (!friendProfile) return null;
+    
     return (
       <TouchableOpacity style={styles.friendItem} onPress={() => handleSelectFriend(friendProfile.id)}>
         <View style={styles.friendInfo}>
@@ -100,7 +102,7 @@ export function SendModal({ isVisible, onClose, onSend }: SendModalProps) {
           <FlatList
             data={acceptedFriends}
             renderItem={renderFriendItem}
-            keyExtractor={item => item.other_user.id}
+            keyExtractor={item => item.other_user?.id || item.created_at}
             ListHeaderComponent={
               <View style={[styles.listHeaderContainer, { backgroundColor: themeColors.background }]}>
                   <Text style={[styles.listHeaderText, { color: themeColors.text }]}>Friends</Text>

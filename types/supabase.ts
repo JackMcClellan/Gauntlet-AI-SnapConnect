@@ -1,8 +1,11 @@
-export interface User {
+import { User as SupabaseUser } from "@supabase/supabase-js";
+
+export interface AppUser {
   id: string;
   username: string | null;
-  avatar_url: string | null;
+  interests: string[] | null;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 export interface File {
@@ -33,7 +36,7 @@ export interface Story {
   time_delay: number;
   caption: string | null;
   created_at: string;
-  user: Pick<User, 'username' | 'avatar_url'>;
+  user: Pick<AppUser, 'username' | 'avatar_url'>;
   file: File;
 }
 
@@ -48,12 +51,16 @@ export interface Conversation {
 }
 
 // API Payloads
-export type UpdateUserPayload = Partial<Pick<User, 'username' | 'avatar_url'>>;
+export interface UpdateUserPayload {
+  username?: string;
+  file_id?: string;
+  interests?: string[];
+}
 
 export interface CreateMessagePayload {
   receiver_id: string;
+  content: string;
   content_type: 'text' | 'file';
-  content?: string;
   file_id?: string;
 }
 
@@ -66,8 +73,15 @@ export interface CreateStoryPayload {
 export interface Friend {
   status: 'pending' | 'accepted';
   created_at: string;
-  user_id1?: User;
-  user_id2?: User;
-  other_user: User;
+  user_id1?: AppUser;
+  user_id2?: AppUser;
+  other_user: AppUser;
   type: 'incoming' | 'outgoing' | 'friend';
+}
+
+export interface Profile extends SupabaseUser {
+  username: string | null;
+  file_id: string | null;
+  interests: string[] | null;
+  avatar_url?: string | null;
 } 

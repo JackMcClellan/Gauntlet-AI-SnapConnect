@@ -8,8 +8,8 @@
 create table public.users (
   id uuid not null primary key references auth.users(id) on delete cascade,
   username text,
-  avatar_url text,
-  -- Note: email can be retrieved by joining with auth.users
+  interests text[],
+  file_id uuid references public.files(id) on delete set null,
   created_at timestamp with time zone default now() not null
 );
 

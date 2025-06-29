@@ -24,7 +24,7 @@ export default function ProfileScreen() {
   });
 
   const { mutate: doUpdateUser, isPending: isUpdatingUser } = useApiMutation({
-    mutationFn: (vars: { username: string, avatarUrl?: string }) => updateUser(session!.user!.id, vars),
+    mutationFn: (vars: { username: string, file_id?: string }) => updateUser(session!.user!.id, vars),
     onSuccess: () => {
       Alert.alert('Success', 'Profile updated successfully.');
       queryClient.invalidateQueries({ queryKey: ['user', session?.user?.id] });
@@ -36,11 +36,13 @@ export default function ProfileScreen() {
 
   const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       setUsername(user.username || '');
       setAvatarUrl(user.avatar_url || '');
+      setLocalAvatarUri(null);
     }
   }, [user]);
 
@@ -53,31 +55,37 @@ export default function ProfileScreen() {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      try {
-        const file = await uploadFileFromUri(uri);
-        setAvatarUrl(file.storage_path); // Or however the URL is constructed
-        doUpdateUser({ username, avatarUrl: file.storage_path });
-      } catch (error) {
-        if (error instanceof Error) {
-          Alert.alert('Upload Error', `Failed to upload image: ${error.message}`);
-        }
-      }
+      setLocalAvatarUri(result.assets[0].uri);
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!username) {
       Alert.alert('Username required', 'Please enter a username.');
       return;
     }
-    doUpdateUser({ username, avatarUrl });
+
+    let file_id: string | undefined;
+
+    if (localAvatarUri) {
+      try {
+        const file = await uploadFileFromUri(localAvatarUri);
+        file_id = file.id;
+      } catch (error) {
+        if (error instanceof Error) {
+          Alert.alert('Upload Error', `Failed to upload image: ${error.message}`);
+        }
+        return;
+      }
+    }
+    
+    doUpdateUser({ username, file_id });
   }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <Avatar
-        imageUrl={avatarUrl}
+        imageUrl={localAvatarUri || avatarUrl}
         fullName={username}
         size={120}
       />

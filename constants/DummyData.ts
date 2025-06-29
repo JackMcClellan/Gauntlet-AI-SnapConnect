@@ -115,4 +115,10 @@ export const DUMMY_USERS_WITH_LOCATION = [
     latitude: 34.048,
     longitude: -118.24,
   },
+];
+
+export const DUMMY_INTERESTS = [
+  'DIY Projects', 'Home Repair', 'Woodworking', 'Gardening', '3D Printing', 
+  'Electronics', 'Automotive', 'Plumbing', 'Painting', 'Crafting',
+  'Metalworking', 'Upcycling', 'Home Decor', 'Construction', 'Welding'
 ]; 

@@ -5,6 +5,7 @@ import Colors from '@/constants/Colors';
 import { MessageCard } from '@/components/MessageCard';
 import { getConversations } from '@/lib/api';
 import { useApiQuery } from '@/hooks/use-api';
+import { useMemo } from 'react';
 
 export default function MessagesScreen() {
   const colorScheme = useColorScheme();
@@ -14,6 +15,19 @@ export default function MessagesScreen() {
     queryKey: ['conversations'],
     queryFn: getConversations,
   });
+
+  // Deduplicate conversations on the client side
+  const uniqueConversations = useMemo(() => {
+    if (!conversations) return [];
+    const seen = new Set();
+    return conversations.filter(conversation => {
+      if (seen.has(conversation.other_user_id)) {
+        return false;
+      }
+      seen.add(conversation.other_user_id);
+      return true;
+    });
+  }, [conversations]);
 
   // Show a full-screen loader on initial load
   if (isLoading && !conversations) {
@@ -39,9 +53,9 @@ export default function MessagesScreen() {
     <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       <Header title="Messages" />
       <FlatList
-        data={conversations || []}
+        data={uniqueConversations}
         renderItem={({ item }) => <MessageCard item={item} />}
-        keyExtractor={(item) => item.other_user_id}
+        keyExtractor={(item, index) => `${item.other_user_id}-${index}`}
         contentContainerStyle={{ backgroundColor: themeColors.background }}
         refreshControl={
           <RefreshControl

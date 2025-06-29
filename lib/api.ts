@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import {
-  User,
+  AppUser,
   UpdateUserPayload,
   File as DBFile,
   Message,
@@ -8,7 +8,8 @@ import {
   Story,
   CreateStoryPayload,
   Conversation,
-  Friend
+  Friend,
+  Profile
 } from '../types/supabase';
 
 const FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL + '/functions/v1';
@@ -46,13 +47,16 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise
 }
 
 // --- Users ---
+export const getMe = () => 
+  apiFetch<Profile>('/users/me');
+
 export const getUser = (id: string) => 
-  apiFetch<User>(`/users/${id}`);
+  apiFetch<AppUser>(`/users/${id}`);
 
 export const updateUser = (id: string, payload: UpdateUserPayload) => 
-  apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  apiFetch<AppUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 
-export async function getDiscoverableUsers(): Promise<User[]> {
+export async function getDiscoverableUsers(): Promise<AppUser[]> {
   return apiFetch('/users');
 }
 
