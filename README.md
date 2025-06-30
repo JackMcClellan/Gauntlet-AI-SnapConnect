@@ -16,9 +16,9 @@ Before running this project, make sure you have the following installed:
 
 1. **Install dependencies**
    ```bash
-   npm install
+   npm install 
    # or
-   yarn install
+   npm install --legacy-peer-deps
    ```
 
 2. **Set up environment variables**

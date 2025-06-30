@@ -15,13 +15,6 @@ export default function TabLayout() {
         headerShown: false,
       }}>
       <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color }) => <Map size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',

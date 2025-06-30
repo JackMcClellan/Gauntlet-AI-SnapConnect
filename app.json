@@ -55,12 +55,7 @@
           "savePhotosPermission": "Allow SnapConnect to save photos.",
           "preventAutomaticLimitedAccessAlert": true
         }
-      ],
-      [  "expo-maps",
-          {
-            "requestLocationPermission": true,
-            "locationPermission": "Allow SnapConnect to use your location"
-          }]
+      ]
     ],
     "experiments": {
       "typedRoutes": true

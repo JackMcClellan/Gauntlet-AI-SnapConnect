@@ -8,8 +8,8 @@
 create table public.users (
   id uuid not null primary key references auth.users(id) on delete cascade,
   username text,
-  avatar_url text,
-  -- Note: email can be retrieved by joining with auth.users
+  interests text[],
+  file_id uuid references public.files(id) on delete set null,
   created_at timestamp with time zone default now() not null
 );
 
@@ -18,6 +18,7 @@ alter table public.users enable row level security;
 
 -- Policies for USERS table
 create policy "Users can view all public profiles." on public.users for select using (true);
+create policy "Users can insert their own profile." on public.users for insert with check (auth.uid() = id);
 create policy "Users can update their own profile." on public.users for update using (auth.uid() = id);
 
 -- FILES TABLE
@@ -28,7 +29,9 @@ create table public.files (
   file_type text not null, -- 'image' or 'video'
   storage_path text not null,
   caption text,
-  tags text[],
+  tags text[], -- AI-generated tags based on user_context for categorization and RAG
+  user_context text, -- What the user says they are doing (for RAG and tag generation)
+  embedding vector(1536), -- Vector embedding of user_context for semantic search
   created_at timestamp with time zone default now() not null
 );
 
@@ -68,6 +71,7 @@ create table public.stories (
   file_id uuid not null references public.files(id) on delete cascade,
   time_delay float not null,
   caption text,
+  is_public boolean not null default false,
   created_at timestamp with time zone default now() not null
 );
 

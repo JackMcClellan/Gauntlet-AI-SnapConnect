@@ -103,7 +103,7 @@ export default function ReviewScreen() {
     );
   }
 
-  const handleSend = async (selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }) => {
+  const handleSend = async (selections: { toStory: boolean; toPublic: boolean; toFriends: string[]; caption?: string; userContext?: string }) => {
     if (!photoUri) {
       Alert.alert('Error', 'No photo to send.');
       return;
@@ -115,8 +115,10 @@ export default function ReviewScreen() {
       if (!uri) {
         throw new Error('Could not capture image.');
       }
-      
-      await sendSnap(uri, selections);
+
+      // All posts (including public) now proceed with normal flow since
+      // caption handling is done in the SendModal
+      await sendSnap(uri, selections, selections.caption, selections.userContext);
 
       Alert.alert('Success', 'Your photo has been sent!');
       router.replace('/(tabs)/messages');

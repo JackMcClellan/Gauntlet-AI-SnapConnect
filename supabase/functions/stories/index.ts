@@ -13,18 +13,53 @@ serve(serveWithOptions(async (req) => {
     let error: any = null
 
     if (req.method === 'GET') {
-      // Get stories that are not expired (e.g., created in the last 24 hours)
-      // The schema doesn't have an expires_at, so we'll filter by created_at.
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
       
-      ({ data, error } = await supabase.from('stories')
+      // Get stories from friends OR user's own stories
+      // First get friend IDs
+      const { data: friendships, error: friendsError } = await supabase
+        .from('friends')
+        .select('user_id1, user_id2')
+        .eq('status', 'accepted')
+        .or(`user_id1.eq.${user.id},user_id2.eq.${user.id}`);
+      
+      if (friendsError) throw friendsError;
+      
+      const friendIds = friendships.flatMap((f: { user_id1: string; user_id2: string }) => [f.user_id1, f.user_id2]);
+      const allowedUserIds = [...new Set([...friendIds, user.id])]; // Include user's own ID
+      
+      // Get stories that are not expired (e.g., created in the last 24 hours)
+      // Show stories from friends OR user's own stories
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      const result = await supabase.from('stories')
         .select(`
           *,
-          user:users(username, avatar_url),
+          user:users(id, username, avatar:file_id(storage_path)),
           file:files(*)
         `)
         .gt('created_at', yesterday)
-        .order('created_at', { ascending: false }))
+        .in('user_id', allowedUserIds)
+        .order('created_at', { ascending: false });
+      
+      data = result.data;
+      error = result.error;
+
+      // Process stories to add avatar URLs
+      const storiesWithAvatarUrls = data.map((story: any) => {
+        let user_with_avatar = story.user;
+        if (user_with_avatar && user_with_avatar.avatar && user_with_avatar.avatar.storage_path) {
+          const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(user_with_avatar.avatar.storage_path);
+          user_with_avatar = { ...user_with_avatar, avatar_url: publicUrl, avatar: undefined };
+        } else if (user_with_avatar) {
+          user_with_avatar = { ...user_with_avatar, avatar_url: null };
+        }
+        
+        return { ...story, user: user_with_avatar };
+      });
+
+      data = storiesWithAvatarUrls;
 
     } else if (req.method === 'POST') {
       const { data: { user } } = await supabase.auth.getUser()
@@ -59,7 +94,8 @@ serve(serveWithOptions(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    return new Response(String(err?.message ?? err), {
+    console.error('Stories function error:', err)
+    return new Response(JSON.stringify({ error: String(err?.message ?? err) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

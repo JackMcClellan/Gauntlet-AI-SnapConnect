@@ -19,42 +19,48 @@ serve(serveWithOptions(async (req) => {
         .select(`
           status,
           created_at,
-          user_id1:users!friends_user_id1_fkey(*),
-          user_id2:users!friends_user_id2_fkey(*)
+          user_id1:users!friends_user_id1_fkey(id, username, avatar:file_id(storage_path)),
+          user_id2:users!friends_user_id2_fkey(id, username, avatar:file_id(storage_path))
         `)
         .or(`user_id1.eq.${user.id},user_id2.eq.${user.id}`);
 
       if (error) throw error;
       
-      type Friendship = {
-        status: 'pending' | 'accepted',
-        created_at: string,
-        user_id1: { id: string },
-        user_id2: { id: string },
-      }
-
-      // We need to shape the data to hide the implementation detail of user_id1 vs user_id2
-      const shapedData = friendships.map((f: Friendship) => {
-        // If the current user is user_id2, it means it's a PENDING request for them
-        // In this case, the other user is user_id1
-        if (f.user_id2.id === user.id) {
-          return {
-            status: f.status,
-            created_at: f.created_at,
-            user_id1: f.user_id1,
-            user_id2: f.user_id2,
-          }
+      const userWithAvatarUrl = (userData: any) => {
+        if (userData && userData.avatar && userData.avatar.storage_path) {
+          const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(userData.avatar.storage_path);
+          return { ...userData, avatar_url: publicUrl, avatar: undefined };
         }
-        // Otherwise, it's either an accepted friendship or a pending request they sent
-        // The other user is user_id2
+        return userData ? { ...userData, avatar_url: null } : null;
+      };
+      
+      // We need to shape the data to hide the implementation detail of user_id1 vs user_id2
+      const shapedData = friendships.map((f: any) => {
+        let otherUser;
+        let type;
+        
+        // Determine who the "other user" is and what type of relationship this is
+        if (f.user_id1.id === user.id) {
+          // Current user is user_id1 (sender)
+          otherUser = f.user_id2;
+          type = f.status === 'pending' ? 'outgoing' : 'friend';
+        } else {
+          // Current user is user_id2 (receiver)
+          otherUser = f.user_id1;
+          type = f.status === 'pending' ? 'incoming' : 'friend';
+        }
+        
+        const otherUserWithAvatar = userWithAvatarUrl(otherUser);
+        
         return {
           status: f.status,
           created_at: f.created_at,
-          // For consistency on the client, we swap them
-          user_id1: f.user_id2,
-          user_id2: f.user_id1,
-        }
-      })
+          user_id1: f.user_id1,
+          user_id2: f.user_id2,
+          other_user: otherUserWithAvatar,
+          type: type
+        };
+      });
 
       return new Response(JSON.stringify(shapedData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

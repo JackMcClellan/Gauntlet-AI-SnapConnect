@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import { createSupabaseClient, serveWithOptions } from '../_shared/supabase-client.ts'
 import { createFileWithUpload, deleteFileAndStorage } from '../_shared/file-storage.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.2'
 
 serve(serveWithOptions(async (req) => {
   const supabase = createSupabaseClient(req)
@@ -28,13 +29,19 @@ serve(serveWithOptions(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
+      // Create a Supabase client with the service role key to bypass RLS
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
       const formData = await req.formData()
       const file = formData.get('file') as File
       const caption = formData.get('caption') as string | null
       const tagsRaw = formData.get('tags') as string | null
       const tags = tagsRaw ? tagsRaw.split(',') : null
       
-      const data = await createFileWithUpload(supabase, user, file, caption, tags)
+      const data = await createFileWithUpload(supabaseAdmin, user, file, caption, tags)
 
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

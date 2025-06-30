@@ -55,9 +55,8 @@
 id: uuid
 email: string
 handle: string
-avatar_url: string
 interests: string[]
-level: "newbie" | "intermediate" | "pro"
+file_id: uuid
 ```
 
 ### `stories`

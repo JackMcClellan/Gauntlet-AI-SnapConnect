@@ -5,7 +5,7 @@ create or replace function get_user_conversations(p_user_id uuid)
 returns table (
     other_user_id uuid,
     other_user_username text,
-    other_user_avatar_url text,
+    other_user_avatar_storage_path text,
     last_message_id uuid,
     last_message_content_type text,
     last_message_content text,
@@ -16,7 +16,7 @@ security definer
 as $$
     with conversation_partners as (
         -- Get all unique users who are either accepted friends or have exchanged messages
-        select user_id from (
+        select distinct user_id from (
             -- Accepted friends
             select
                 case
@@ -71,18 +71,22 @@ as $$
     select
         cp.user_id as other_user_id,
         u.username as other_user_username,
-        u.avatar_url as other_user_avatar_url,
+        f.storage_path as other_user_avatar_storage_path,
         lm.message_id as last_message_id,
         coalesce(lm.content_type, 'text') as last_message_content_type,
-        coalesce(lm.content, 
-            case 
-                when fd.friend_id is not null then 'You are now friends.' 
-                else 'Start the conversation!' 
-            end
-        ) as last_message_content,
+        case
+            when lm.content_type = 'file' then 'Sent an Image'
+            else coalesce(lm.content, 
+                case 
+                    when fd.friend_id is not null then 'You are now friends.' 
+                    else 'Start the conversation!' 
+                end
+            )
+        end as last_message_content,
         coalesce(lm.created_at, fd.friendship_created_at, u.created_at) as last_message_created_at
     from conversation_partners cp
     join public.users u on u.id = cp.user_id
+    left join public.files f on f.id = u.file_id
     left join last_messages lm on lm.other_user_id = cp.user_id and lm.rn = 1
     left join friendship_details fd on fd.friend_id = cp.user_id
     order by last_message_created_at desc;

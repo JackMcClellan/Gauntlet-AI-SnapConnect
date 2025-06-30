@@ -1,26 +1,68 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createSupabaseClient } from '../_shared/supabase-client.ts'
+import { createSupabaseClient, serveWithOptions } from '../_shared/supabase-client.ts'
 
-serve(async (req: Request) => {
-  // This is needed if you're planning to invoke your function from a browser.
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+serve(serveWithOptions(async (req) => {
+  const supabase = createSupabaseClient(req)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new Response(JSON.stringify({ message: 'User not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
+  const { pathname } = new URL(req.url)
+  const pathParts = pathname.split('/')
+  const lastPart = pathParts[pathParts.length - 1]
+
+  const userWithAvatarUrl = (user: any) => {
+    if (user.avatar && user.avatar.storage_path) {
+      const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(user.avatar.storage_path);
+      return { ...user, avatar_url: publicUrl, avatar: undefined };
+    }
+    return { ...user, avatar_url: null };
+  };
 
   try {
-    const supabase = createSupabaseClient(req)
-    
+    // --- Handle GET requests ---
     if (req.method === 'GET') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      // Endpoint to get the current user's profile
+      if (lastPart === 'me') {
+        let { data, error } = await supabase
+          .from('users')
+          .select('*, avatar:file_id ( storage_path )')
+          .eq('id', user.id)
+          .single()
+        
+        // If user doesn't exist, create a new record
+        if (error && error.code === 'PGRST116') { // No rows returned
+          console.log('User not found, attempting to create:', user.id);
+          
+          const newUserData = {
+            id: user.id,
+            username: null, // Use email prefix as default username
+            created_at: new Date().toISOString()
+          };
 
-      const url = new URL(req.url);
-      const pathParts = url.pathname.split('/');
-      const id = pathParts[pathParts.length - 1];
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert(newUserData)
+            .select('*, avatar:file_id ( storage_path )')
+            .single();
 
-      // Check if the last part of the path is 'users', meaning no ID was provided.
-      if (id === 'users') {
+          if (createError) {
+            console.error('Failed to create user:', createError);
+            throw new Error(`Failed to create user profile: ${createError.message}`);
+          }
+          
+          console.log('User created successfully:', createdUser);
+          data = createdUser;
+        } else if (error) {
+          console.error('Error fetching user:', error);
+          throw error;
+        }
+        
+        const userWithAvatar = userWithAvatarUrl(data);
+        return new Response(JSON.stringify(userWithAvatar), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+
+      if (lastPart === 'users') {
         // List discoverable users
         const { data: friendships, error: friendsError } = await supabase
           .from('friends')
@@ -34,39 +76,64 @@ serve(async (req: Request) => {
 
         const { data, error } = await supabase
           .from('users')
-          .select('*')
+          .select('*, avatar:file_id ( storage_path )')
           .not('id', 'in', `(${excludedIds.join(',')})`);
         
         if (error) throw error;
-        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+        const usersWithAvatars = data.map(userWithAvatarUrl);
+
+        return new Response(JSON.stringify(usersWithAvatars), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      // If an ID is present in the path
-      const { data, error } = await supabase.from('users').select('*').eq('id', id).single();
-      if (error) throw error;
-      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      // Endpoint to get a user by ID
+      const userId = lastPart;
+      if (userId) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*, avatar:file_id ( storage_path )')
+          .eq('id', userId)
+          .single();
+
+        if (error) throw error;
+        const userWithAvatar = userWithAvatarUrl(data);
+        return new Response(JSON.stringify(userWithAvatar), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+        
+      return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
-    
+
+    // --- Handle PATCH requests ---
     if (req.method === 'PATCH') {
-      const url = new URL(req.url);
-      const pathParts = url.pathname.split('/');
-      const id = pathParts[pathParts.length - 1];
-      const updateData = await req.json();
-      const { data, error } = await supabase.from('users').update(updateData).eq('id', id).select().single();
-
+      const userId = lastPart;
+      if (userId !== user.id) {
+        return new Response(JSON.stringify({ message: 'You can only update your own profile.' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      const body = await req.json();
+      const { data, error } = await supabase
+        .from('users')
+        .update(body)
+        .eq('id', user.id)
+        .select('*, avatar:file_id ( storage_path )')
+        .single();
+      
       if (error) throw error;
-
-      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const userWithAvatar = userWithAvatarUrl(data);
+      return new Response(JSON.stringify(userWithAvatar), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
       status: 405,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+    })
+  } catch (err) {
+    console.error(err)
+    return new Response(JSON.stringify({ message: (err as Error).message ?? 'An unknown server error occurred' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-}) 
+})) 

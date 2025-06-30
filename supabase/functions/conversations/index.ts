@@ -31,7 +31,22 @@ serve(serveWithOptions(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify(data), {
+    // Process conversations to add avatar URLs
+    const conversationsWithAvatarUrls = data.map((conversation: any) => {
+      let other_user_avatar_url = null;
+      if (conversation.other_user_avatar_storage_path) {
+        const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(conversation.other_user_avatar_storage_path);
+        other_user_avatar_url = publicUrl;
+      }
+      
+      return {
+        ...conversation,
+        other_user_avatar_url,
+        other_user_avatar_storage_path: undefined
+      };
+    });
+
+    return new Response(JSON.stringify(conversationsWithAvatarUrls), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
