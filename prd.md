@@ -6,7 +6,7 @@
 
 ## 🧭 Executive Summary
 
-**SnapFix** is a mobile-first, RAG-powered ephemeral social platform built for interest enthusiasts—especially DIYers, handymen, homeowners, and builders—who want to document, share, and discover how things get fixed or built. Users post photo/video stories of projects, get AI suggestions on how to repair or upgrade their space, and connect with others over shared build/fix experiences. AI curates stories, generates content, and retrieves relevant guidance tailored to each user’s needs.
+**SnapFix** is a mobile-first, RAG-powered ephemeral social platform built for interest enthusiasts—especially DIYers, handymen, homeowners, and builders—who want to document, share, and discover how things get fixed or built. Users post photo/video stories of projects, get AI suggestions on how to repair or upgrade their space, and connect with others over shared build/fix experiences. AI curates stories, generates content, and retrieves relevant guidance tailored to each user's needs.
 
 ---
 
@@ -36,12 +36,12 @@
 
 ## 🧠 RAG-Powered User Stories
 
-1. *"As a new homeowner, I want AI to suggest quick fix projects for my house based on what I’ve viewed and posted."*
-2. *"As a handyman, I want AI to generate captions for my project videos that explain steps and materials used."*
-3. *"As a user, I want to take a picture of a broken object and get repair suggestions with links to relevant tools or guides."*
-4. *"As a DIY hobbyist, I want to get daily content ideas based on trends and my interests."*
-5. *"As a user, I want to receive relevant fix-it videos when I message someone about a problem."*
-6. *"As a creator, I want to tag materials/tools in my posts and have AI suggest relevant alternatives or cost-saving options."*
+1. *"As a social media user, I want AI to generate engaging captions for my photos so I don't have to think of what to write."*
+2. *"As a content creator, I want AI to automatically tag my posts with relevant keywords so my content is more discoverable."*
+3. *"As a user browsing the discover feed, I want to search for content by typing topics like 'coffee' or 'workout' and find relevant posts."*
+4. *"As someone sharing a story, I want AI to suggest different caption styles (casual, creative, professional) based on my content."*
+5. *"As a user, I want to search through my friends' public content to find specific moments or activities we shared."*
+6. *"As a content consumer, I want the app to understand what I'm interested in and help me discover similar content from other users."*
 
 ---
 
@@ -60,7 +60,7 @@ User Action → Input Embedding → Vector Search → Top Results Retrieved
 ```
 
 Example:  
-> Uploads a video titled “Sink won’t drain” → AI retrieves 3 relevant fix videos + a written guide → GPT-4 generates caption + fix instructions
+> Uploads a video and give the context “Sink won’t drain” → AI retrieves generates tags based on context and generates a caption based on context and tone you are going for
 
 ---
 
