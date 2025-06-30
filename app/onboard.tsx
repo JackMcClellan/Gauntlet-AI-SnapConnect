@@ -33,10 +33,10 @@ export default function OnboardScreen() {
   const router = useRouter();
   const [profile, setProfile] = useAtom(profileAtom);
   
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
   const [username, setUsername] = useState(profile?.username || '');
   const [selectedInterests, setSelectedInterests] = useState<string[]>(profile?.interests || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   const handleToggleInterest = (interest: string) => {
     setSelectedInterests(prev => 
@@ -55,11 +55,11 @@ export default function OnboardScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.5,
     });
 
     if (!result.canceled) {
-      setAvatarUrl(result.assets[0].uri);
+      setLocalAvatarUri(result.assets[0].uri);
     }
   };
 
@@ -72,16 +72,23 @@ export default function OnboardScreen() {
     setIsSubmitting(true);
 
     try {
-      let fileId = profile?.file_id;
-      // If a new avatar was picked and it's a local URI
-      if (avatarUrl && avatarUrl.startsWith('file://')) {
-        const uploadedFile = await uploadFileFromUri(avatarUrl);
-        fileId = uploadedFile.id;
+      let file_id: string | undefined = profile?.file_id || undefined;
+
+      if (localAvatarUri) {
+        try {
+          const file = await uploadFileFromUri(localAvatarUri);
+          file_id = file.id;
+        } catch (error) {
+          if (error instanceof Error) {
+            Alert.alert('Upload Error', `Failed to upload image: ${error.message}`);
+          }
+          return;
+        }
       }
 
       const updatedUser = await updateUser(session.user.id, {
         username,
-        file_id: fileId || undefined,
+        file_id: file_id || undefined,
         interests: selectedInterests || [],
       });
       
@@ -105,7 +112,7 @@ export default function OnboardScreen() {
       <View style={styles.content}>
         <Pressable onPress={handlePickImage} style={styles.avatarContainer}>
           <Avatar
-            imageUrl={avatarUrl}
+            imageUrl={localAvatarUri || profile?.avatar_url}
             fullName={username}
             size={120}
           />
@@ -121,6 +128,9 @@ export default function OnboardScreen() {
         />
         
         <Text style={[styles.sectionTitle, { color: themeColors.text }]}>What are your interests?</Text>
+        <Text style={[styles.sectionDescription, { color: themeColors.text }]}>
+          Select topics you're passionate about. This helps us personalize your experience and connect you with like-minded people.
+        </Text>
         <View style={styles.pillsContainer}>
           {DUMMY_INTERESTS.map(interest => (
             <InterestPill 
@@ -172,6 +182,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    alignSelf: 'flex-start',
+  },
+  sectionDescription: {
+    fontSize: 14,
+    marginBottom: 20,
     alignSelf: 'flex-start',
   },
   pillsContainer: {

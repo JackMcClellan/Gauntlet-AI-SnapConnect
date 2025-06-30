@@ -5,7 +5,8 @@ export async function createFileWithUpload(
   user: User,
   file: File,
   caption: string | null,
-  tags: string[] | null
+  tags: string[] | null,
+  userContext: string | null
 ) {
   const filePath = `${user.id}/${crypto.randomUUID()}`
 
@@ -26,6 +27,7 @@ export async function createFileWithUpload(
       file_type: file.type.startsWith('image') ? 'image' : 'video',
       caption: caption,
       tags: tags,
+      user_context: userContext,
     })
     .select()
     .single()

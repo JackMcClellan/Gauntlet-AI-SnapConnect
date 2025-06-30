@@ -24,13 +24,40 @@ serve(serveWithOptions(async (req) => {
     if (req.method === 'GET') {
       // Endpoint to get the current user's profile
       if (lastPart === 'me') {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('users')
           .select('*, avatar:file_id ( storage_path )')
           .eq('id', user.id)
           .single()
         
-        if (error) throw error
+        // If user doesn't exist, create a new record
+        if (error && error.code === 'PGRST116') { // No rows returned
+          console.log('User not found, attempting to create:', user.id);
+          
+          const newUserData = {
+            id: user.id,
+            username: null, // Use email prefix as default username
+            created_at: new Date().toISOString()
+          };
+
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert(newUserData)
+            .select('*, avatar:file_id ( storage_path )')
+            .single();
+
+          if (createError) {
+            console.error('Failed to create user:', createError);
+            throw new Error(`Failed to create user profile: ${createError.message}`);
+          }
+          
+          console.log('User created successfully:', createdUser);
+          data = createdUser;
+        } else if (error) {
+          console.error('Error fetching user:', error);
+          throw error;
+        }
+        
         const userWithAvatar = userWithAvatarUrl(data);
         return new Response(JSON.stringify(userWithAvatar), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }

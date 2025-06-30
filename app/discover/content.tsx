@@ -1,32 +1,63 @@
-import React from 'react';
-import { StyleSheet, View, SafeAreaView, TouchableOpacity, useWindowDimensions, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, SafeAreaView, TouchableOpacity, useWindowDimensions, Text, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { DUMMY_DISCOVER_CONTENT, DUMMY_CHATS } from '@/constants/DummyData';
 import { X } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
+import { Story } from '@/types/supabase';
+import { getPost } from '@/lib/api';
 
-export default function DiscoverContentScreen() {
+export default function ContentScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { postId } = useLocalSearchParams<{ postId: string }>();
   const { width, height } = useWindowDimensions();
+  
+  const [post, setPost] = useState<Story | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const content = DUMMY_DISCOVER_CONTENT.find((c) => c.id === id);
-  const user = content ? DUMMY_CHATS.find((c) => c.id === content.userId) : null;
+  useEffect(() => {
+    const fetchPost = async () => {
+      if (!postId) return;
+      
+      try {
+        const postData = await getPost(postId);
+        setPost(postData);
+      } catch (error) {
+        console.error('Error fetching post:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!content || !user) {
+    fetchPost();
+  }, [postId]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ headerShown: false, animation: 'fade' }} />
+        <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
+          <ActivityIndicator size="large" color="white" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!post || !post.file) {
     return null;
   }
+
+  const fileUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/public/files/${post.file.storage_path}`;
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false, animation: 'fade' }} />
       <View style={styles.contentContainer}>
-        {content.type === 'image' ? (
-          <Image source={{ uri: content.url }} style={{ width, height }} contentFit="contain" />
+        {post.file.file_type === 'image' ? (
+          <Image source={{ uri: fileUrl }} style={{ width, height }} contentFit="contain" />
         ) : (
           <Video
-            source={{ uri: content.url }}
+            source={{ uri: fileUrl }}
             style={{ width, height }}
             resizeMode={ResizeMode.CONTAIN}
             isLooping
@@ -39,8 +70,16 @@ export default function DiscoverContentScreen() {
         <X size={32} color="white" />
       </TouchableOpacity>
       <View style={styles.userInfoContainer}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
-        <Text style={styles.username}>{user.name}</Text>
+        <Image 
+          source={{ uri: post.user.avatar_url || 'https://via.placeholder.com/30' }} 
+          style={styles.avatar} 
+        />
+        <View style={styles.textContainer}>
+          <Text style={styles.username}>{post.user.username || 'Unknown'}</Text>
+          {post.caption && (
+            <Text style={styles.caption}>{post.caption}</Text>
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -67,11 +106,12 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: 20,
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
+    maxWidth: '80%',
   },
   avatar: {
     width: 30,
@@ -79,9 +119,18 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginRight: 10,
   },
+  textContainer: {
+    flex: 1,
+  },
   username: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  caption: {
+    color: 'white',
+    fontSize: 14,
+    marginTop: 4,
+    opacity: 0.9,
   },
 }); 

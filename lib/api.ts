@@ -9,7 +9,15 @@ import {
   CreateStoryPayload,
   Conversation,
   Friend,
-  Profile
+  Profile,
+  CaptionRequest,
+  CaptionResponse,
+  TagRequest,
+  TagResponse,
+  EmbeddingRequest,
+  EmbeddingResponse,
+  RAGSearchRequest,
+  RAGSearchResponse
 } from '../types/supabase';
 
 const FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL + '/functions/v1';
@@ -94,7 +102,7 @@ export const uploadFile = async (file: File, caption?: string, tags?: string[]) 
 export const deleteFile = (id: string) => 
   apiFetch<DBFile>(`/files/${id}`, { method: 'DELETE' });
 
-export const sendSnap = async (uri: string, selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }) => {
+export const sendSnap = async (uri: string, selections: { toStory: boolean; toPublic: boolean; toFriends: string[] }, caption?: string, userContext?: string) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('User not authenticated');
 
@@ -105,7 +113,39 @@ export const sendSnap = async (uri: string, selections: { toStory: boolean; toPu
     type: 'image/jpeg',
   } as any);
   
+  if (caption) formData.append('caption', caption);
+  if (userContext) formData.append('userContext', userContext);
   formData.append('toStory', String(selections.toStory));
+  formData.append('toPublic', String(selections.toPublic));
+  formData.append('toFriends', JSON.stringify(selections.toFriends));
+
+  const response = await fetch(`${FUNCTION_URL}/send-snap`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session.access_token}` },
+    body: formData,
+  });
+  return handleResponse<{ success: boolean; fileId: string }>(response);
+};
+
+export const createPublicPost = async (
+  uri: string, 
+  caption: string, 
+  tags: string[], // Keep for compatibility but ignore
+  selections: { toStory: boolean; toFriends: string[] }
+) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('User not authenticated');
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri,
+    name: uri.split('/').pop(),
+    type: 'image/jpeg',
+  } as any);
+  
+  formData.append('caption', caption);
+  formData.append('toStory', String(selections.toStory));
+  formData.append('toPublic', 'true'); // Always true for public posts
   formData.append('toFriends', JSON.stringify(selections.toFriends));
 
   const response = await fetch(`${FUNCTION_URL}/send-snap`, {
@@ -150,6 +190,12 @@ export const createMessage = (payload: CreateMessagePayload) =>
 export const getStories = () => 
   apiFetch<Story[]>('/stories');
 
+export const getPosts = () => 
+  apiFetch<Story[]>('/posts');
+
+export const getPost = (id: string) => 
+  apiFetch<Story>(`/posts/${id}`);
+
 export const createStory = (payload: CreateStoryPayload) =>
   apiFetch<Story>('/stories', { method: 'POST', body: JSON.stringify(payload) });
 
@@ -158,4 +204,20 @@ export const deleteStory = (id: string) =>
 
 // --- Conversations ---
 export const getConversations = () =>
-  apiFetch<Conversation[]>('/conversations'); 
+  apiFetch<Conversation[]>('/conversations');
+
+// --- AI Caption Generation ---
+export const generateAiCaption = (payload: CaptionRequest) =>
+  apiFetch<CaptionResponse>('/ai-caption', { method: 'POST', body: JSON.stringify(payload) });
+
+// --- AI Tag Generation ---
+export const generateAiTags = (payload: TagRequest) =>
+  apiFetch<TagResponse>('/ai-tags', { method: 'POST', body: JSON.stringify(payload) });
+
+// --- Embedding Generation ---
+export const generateEmbedding = (payload: EmbeddingRequest) =>
+  apiFetch<EmbeddingResponse>('/generate-embedding', { method: 'POST', body: JSON.stringify(payload) });
+
+// --- RAG Search ---
+export const ragSearch = (payload: RAGSearchRequest) =>
+  apiFetch<RAGSearchResponse>('/rag-search', { method: 'POST', body: JSON.stringify(payload) }); 
